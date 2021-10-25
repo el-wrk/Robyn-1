@@ -177,60 +177,60 @@ robyn_inputs <- function(dt_input = NULL,
                          calibration_input = NULL,
                          InputCollect = NULL,
                          ...) {
-
+  
   ### Use case 1: running robyn_inputs() for the first time
   if (is.null(InputCollect)) {
     dt_input <- as.data.table(dt_input)
     dt_holidays <- as.data.table(dt_holidays)
-
+    
     # check for NA values
     check_nas(dt_input)
     check_nas(dt_holidays)
-
+    
     # check vars names (duplicates and valid)
     check_varnames(dt_input, dt_holidays,
                    dep_var, date_var,
                    context_vars, paid_media_vars,
                    organic_vars)
-
+    
     ## check date input (and set dayInterval and intervalType)
     date_input <- check_datevar(dt_input, date_var)
     date_var <- date_input$date_var # when date_var = "auto"
     dayInterval <- date_input$dayInterval
     intervalType <- date_input$intervalType
     setorderv(dt_input, date_var)
-
+    
     ## check dependent var
     check_depvar(dt_input, dep_var, dep_var_type)
-
+    
     ## check prophet
     check_prophet(dt_holidays, prophet_country, prophet_vars, prophet_signs)
-
+    
     ## check baseline variables (and maybe transform context_signs)
     context <- check_context(dt_input, context_vars, context_signs)
     context_signs <- context$context_signs
-
+    
     ## check paid media variables (set mediaVarCount and maybe transform paid_media_signs)
     paidmedia <- check_paidmedia(dt_input, paid_media_vars, paid_media_signs, paid_media_spends)
     paid_media_signs <- paidmedia$paid_media_signs
     mediaVarCount <- paidmedia$mediaVarCount
     exposureVarName <- paid_media_vars[!(paid_media_vars == paid_media_spends)]
-
+    
     ## check organic media variables (and maybe transform organic_signs)
     organic <- check_organicvars(dt_input, organic_vars, organic_signs)
     organic_signs <- organic$organic_signs
-
+    
     ## check factor_vars
     check_factorvars(factor_vars, context_vars, organic_vars)
-
+    
     ## check all vars
     all_media <- c(paid_media_vars, organic_vars)
     all_ind_vars <- c(prophet_vars, context_vars, all_media)
     check_allvars(all_ind_vars)
-
+    
     ## check data dimension
     check_datadim(dt_input, all_ind_vars, rel = 10)
-
+    
     ## check window_start & window_end (and transform parameters/data)
     windows <- check_windows(dt_input, date_var, all_media, window_start, window_end)
     dt_input <- windows$dt_input
@@ -240,16 +240,16 @@ robyn_inputs <- function(dt_input = NULL,
     window_end <- windows$window_end
     rollingWindowEndWhich <- windows$rollingWindowEndWhich
     rollingWindowLength <- windows$rollingWindowLength
-
+    
     ## check adstock
     adstock <- check_adstock(adstock)
 
     ## check hyperparameters (if passed)
     check_hyperparameters(hyperparameters, adstock, all_media)
-
+    
     ## check calibration and iters/trials
     calibration_input <- check_calibration(dt_input, date_var, calibration_input, dayInterval)
-
+    
     ## collect input
     InputCollect <- output <- list(
       dt_input = dt_input,
@@ -291,7 +291,7 @@ robyn_inputs <- function(dt_input = NULL,
       hyperparameters = hyperparameters,
       calibration_input = calibration_input
     )
-
+    
     ### Use case 1: running robyn_inputs() for the first time
     if (!is.null(hyperparameters)) {
       ### conditional output 1.2
@@ -460,43 +460,43 @@ hyper_names <- function(adstock, all_media) {
 #' @export
 robyn_engineering <- function(InputCollect, ...) {
   check_InputCollect(InputCollect)
-
+  
   dt_input <- InputCollect$dt_input
   paid_media_vars <- InputCollect$paid_media_vars
   paid_media_spends <- InputCollect$paid_media_spends
   factor_vars <- InputCollect$factor_vars
   rollingWindowStartWhich <- InputCollect$rollingWindowStartWhich
   rollingWindowEndWhich <- InputCollect$rollingWindowEndWhich
-
+  
   # dt_inputRollWind
   dt_inputRollWind <- dt_input[rollingWindowStartWhich:rollingWindowEndWhich, ]
-
+  
   # dt_transform
   dt_transform <- dt_input
   colnames(dt_transform)[colnames(dt_transform) == InputCollect$date_var] <- "ds"
   colnames(dt_transform)[colnames(dt_transform) == InputCollect$dep_var] <- "dep_var"
   dt_transform <- dt_transform[order(dt_transform$ds), ]
-
+  
   # dt_transformRollWind
   dt_transformRollWind <- dt_transform[rollingWindowStartWhich:rollingWindowEndWhich, ]
-
+  
   ################################################################
   #### model exposure metric from spend
-
+  
   mediaCostFactor <- colSums(subset(dt_inputRollWind, select = paid_media_spends), na.rm = TRUE) /
     colSums(subset(dt_inputRollWind, select = paid_media_vars), na.rm = TRUE)
-
+  
   costSelector <- paid_media_spends != paid_media_vars
   names(costSelector) <- paid_media_vars
-
+  
   if (any(costSelector)) {
     modNLSCollect <- list()
     yhatCollect <- list()
     plotNLSCollect <- list()
-
+    
     for (i in 1:InputCollect$mediaVarCount) {
       if (costSelector[i]) {
-
+        
         # run models (NLS and/or LM)
         dt_spendModInput <- subset(dt_inputRollWind, select = c(paid_media_spends[i], paid_media_vars[i]))
         results <- fit_spend_exposure(dt_spendModInput, mediaCostFactor[i], paid_media_vars[i])
@@ -534,35 +534,35 @@ robyn_engineering <- function(InputCollect, ...) {
           ) +
           theme_minimal() +
           theme(legend.position = "top", legend.justification = "left")
-
+        
         # save results into modNLSCollect. plotNLSCollect, yhatCollect
         modNLSCollect[[paid_media_vars[i]]] <- mod
         plotNLSCollect[[paid_media_vars[i]]] <- models_plot
         yhatCollect[[paid_media_vars[i]]] <- dt_plotNLS
       }
     }
-
+    
     modNLSCollect <- rbindlist(modNLSCollect)
     yhatNLSCollect <- rbindlist(yhatCollect)
     yhatNLSCollect$ds <- rep(dt_transformRollWind$ds, nrow(yhatNLSCollect) / nrow(dt_transformRollWind))
   } else {
     modNLSCollect <- plotNLSCollect <- yhatNLSCollect <- NULL
   }
-
+  
   # getSpendSum <- colSums(subset(dt_input, select = paid_media_spends), na.rm = TRUE)
   # getSpendSum <- data.frame(rn = paid_media_vars, spend = getSpendSum, row.names = NULL)
-
+  
   ################################################################
   #### clean & aggregate data
-
+  
   ## transform all factor variables
   if (length(factor_vars) > 0) {
     dt_transform[, (factor_vars) := lapply(.SD, as.factor), .SDcols = factor_vars]
   }
-
+  
   ################################################################
   #### Obtain prophet trend, seasonality and change-points
-
+  
   if (!is.null(InputCollect$prophet_vars)) {
     dt_transform <- prophet_decomp(
       dt_transform,
@@ -577,10 +577,10 @@ robyn_engineering <- function(InputCollect, ...) {
       ...
     )
   }
-
+  
   ################################################################
   #### Finalize enriched input
-
+  
   dt_transform <- subset(dt_transform, select = c("ds", "dep_var", InputCollect$all_ind_vars))
   InputCollect[["dt_mod"]] <- dt_transform
   InputCollect[["dt_modRollWind"]] <- dt_transform[rollingWindowStartWhich:rollingWindowEndWhich, ]
@@ -618,13 +618,13 @@ prophet_decomp <- function(dt_transform, dt_holidays,
   check_prophet(dt_holidays, prophet_country, prophet_vars, prophet_signs)
   recurrance <- subset(dt_transform, select = c("ds", "dep_var"))
   colnames(recurrance)[2] <- "y"
-
+  
   holidays <- set_holidays(dt_transform, dt_holidays, intervalType)
   use_trend <- any(str_detect("trend", prophet_vars))
   use_season <- any(str_detect("season", prophet_vars))
   use_weekday <- any(str_detect("weekday", prophet_vars))
   use_holiday <- any(str_detect("holiday", prophet_vars))
-
+  
   dt_regressors <- cbind(recurrance, subset(dt_transform, select = c(context_vars, paid_media_vars)))
   modelRecurrance <- prophet(
     holidays = if (use_holiday) holidays[country == prophet_country] else NULL,
@@ -633,7 +633,7 @@ prophet_decomp <- function(dt_transform, dt_holidays,
     daily.seasonality = FALSE,
     ...
   )
-
+  
   if (!is.null(factor_vars)) {
     dt_ohe <- as.data.table(model.matrix(y ~ ., dt_regressors[, c("y", factor_vars), with = FALSE]))[, -1]
     ohe_names <- names(dt_ohe)
@@ -655,7 +655,7 @@ prophet_decomp <- function(dt_transform, dt_holidays,
     mod <- fit.prophet(modelRecurrance, dt_regressors, ...)
     forecastRecurrance <- predict(mod, dt_regressors)
   }
-
+  
   if (use_trend) {
     dt_transform$trend <- forecastRecurrance$trend[1:nrow(recurrance)]
   }
@@ -668,7 +668,7 @@ prophet_decomp <- function(dt_transform, dt_holidays,
   if (use_holiday) {
     dt_transform$holiday <- forecastRecurrance$holidays[1:nrow(recurrance)]
   }
-
+  
   return(dt_transform)
 }
 
@@ -692,7 +692,7 @@ prophet_decomp <- function(dt_transform, dt_holidays,
 fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_vars) {
   if (ncol(dt_spendModInput) != 2) stop("Pass only 2 columns")
   colnames(dt_spendModInput) <- c("spend", "exposure")
-
+  
   # remove spend == 0 to avoid DIV/0 error
   # dt_spendModInput$spend[dt_spendModInput$spend == 0] <- 0.01
   # # adapt exposure with avg when spend == 0
@@ -700,7 +700,7 @@ fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_var
   #   dt_spendModInput$exposure == 0, dt_spendModInput$spend / mediaCostFactor,
   #   dt_spendModInput$exposure
   # )
-
+  
   # Model 1: Michaelis-Menten model Vmax * spend/(Km + spend)
   tryCatch(
     {
@@ -708,7 +708,7 @@ fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_var
         Vmax = dt_spendModInput[, max(exposure)],
         Km = dt_spendModInput[, max(exposure) / 2]
       )
-
+      
       modNLS <- nlsLM(exposure ~ Vmax * spend / (Km + spend),
         data = dt_spendModInput,
         start = nlsStartVal,
@@ -717,7 +717,7 @@ fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_var
       yhatNLS <- predict(modNLS)
       modNLSSum <- summary(modNLS)
       rsq_nls <- get_rsq(true = dt_spendModInput$exposure, predicted = yhatNLS)
-
+      
       # # QA nls model prediction: check
       # yhatNLSQA <- modNLSSum$coefficients[1,1] * dt_spendModInput$spend / (modNLSSum$coefficients[2,1] + dt_spendModInput$spend) #exposure = v  * spend / (k + spend)
       # identical(yhatNLS, yhatNLSQA)
@@ -734,7 +734,7 @@ fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_var
       if (!exists("modNLS")) modNLS <- yhatNLS <- modNLSSum <- rsq_nls <- NULL
     }
   )
-
+  
   # build lm comparison model
   modLM <- lm(exposure ~ spend - 1, data = dt_spendModInput)
   yhatLM <- predict(modLM)
@@ -751,7 +751,7 @@ fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_var
       "Otherwise consider using spend instead."
     ))
   }
-
+  
   output <- list(
     res = data.table(
       channel = paid_media_vars,
@@ -771,7 +771,7 @@ fit_spend_exposure <- function(dt_spendModInput, mediaCostFactor, paid_media_var
     modLM = modLM,
     data = dt_spendModInput
   )
-
+  
   return(output)
 }
 
@@ -791,11 +791,11 @@ set_holidays <- function(dt_transform, dt_holidays, intervalType) {
   if (!intervalType %in% opts) {
     stop("Pass a valid 'intervalType'. Any of: ", paste(opts, collapse = ", "))
   }
-
+  
   if (intervalType == "day") {
     holidays <- dt_holidays
   }
-
+  
   if (intervalType == "week") {
     weekStartInput <- lubridate::wday(dt_transform$ds[1], week_start = 1)
     if (!weekStartInput %in% c(1, 7)) stop("Week start has to be Monday or Sunday")
@@ -803,7 +803,7 @@ set_holidays <- function(dt_transform, dt_holidays, intervalType) {
     holidays <- dt_holidays[, .(ds = dsWeekStart, holiday, country, year)]
     holidays <- holidays[, lapply(.SD, paste0, collapse = "#"), by = c("ds", "country", "year"), .SDcols = "holiday"]
   }
-
+  
   if (intervalType == "month") {
     monthStartInput <- all(day(dt_transform[, ds]) == 1)
     if (!monthStartInput) {
@@ -813,6 +813,6 @@ set_holidays <- function(dt_transform, dt_holidays, intervalType) {
     holidays <- dt_holidays[, .(ds = dsMonthStart, holiday, country, year)]
     holidays <- holidays[, lapply(.SD, paste0, collapse = "#"), by = c("ds", "country", "year"), .SDcols = "holiday"]
   }
-
+  
   return(holidays)
 }

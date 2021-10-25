@@ -174,7 +174,7 @@ check_context <- function(dt_input, context_vars, context_signs) {
   } else {
     stop("Provide 'context_vars' and 'context_signs' at the same time")
   }
-
+  
   return(invisible(list(context_signs = context_signs)))
 }
 
@@ -182,10 +182,10 @@ check_paidmedia <- function(dt_input, paid_media_vars, paid_media_signs, paid_me
   if (is.null(paid_media_vars) | is.null(paid_media_spends)) {
     stop("Must provide 'paid_media_vars' and 'paid_media_spends'")
   }
-
+  
   mediaVarCount <- length(paid_media_vars)
   spendVarCount <- length(paid_media_spends)
-
+  
   if (!all(paid_media_vars %in% names(dt_input))) {
     stop("Provided 'paid_media_vars' is not included in input data")
   }
@@ -273,7 +273,7 @@ check_windows <- function(dt_input, date_var, all_media, window_start, window_en
   } else if (window_start > max(as.character(dt_input[, get(date_var)]))) {
     stop("'window_start' can't be larger than the the latest date in input data")
   }
-
+  
   rollingWindowStartWhich <- which.min(abs(difftime(
     as.Date(dt_input[, get(date_var)]),
     as.Date(window_start),
@@ -284,7 +284,7 @@ check_windows <- function(dt_input, date_var, all_media, window_start, window_en
     message("'window_start' is adapted to the closest date contained in input data: ", window_start)
   }
   refreshAddedStart <- window_start
-
+  
   if (is.null(window_end)) {
     window_end <- max(as.character(dt_input[, get(date_var)]))
   } else if (is.na(as.Date(window_end, "%Y-%m-%d"))) {
@@ -296,14 +296,14 @@ check_windows <- function(dt_input, date_var, all_media, window_start, window_en
     window_end <- max(as.character(dt_input[, get(date_var)]))
     message("'window_end' must be >= 'window_start.' It's set to latest date in input data")
   }
-
+  
   rollingWindowEndWhich <- which.min(abs(difftime(as.Date(dt_input[, get(date_var)]), as.Date(window_end), units = "days")))
   if (!(as.Date(window_end) %in% dt_input[, get(date_var)])) {
     window_end <- dt_input[rollingWindowEndWhich, get(date_var)]
     message("'window_end' is adapted to the closest date contained in input data: ", window_end)
   }
   rollingWindowLength <- rollingWindowEndWhich - rollingWindowStartWhich + 1
-
+  
   dt_init <- dt_input[rollingWindowStartWhich:rollingWindowEndWhich, all_media, with = FALSE]
   init_all0 <- colSums(dt_init) == 0
   if (any(init_all0)) {
@@ -391,7 +391,7 @@ check_InputCollect <- function(list) {
       paste(not_present, collapse = ", ")
     ))
   }
-
+  
   if (length(list$dt_input) <= 1) {
     stop("Check your 'dt_input' object")
   }

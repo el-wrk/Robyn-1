@@ -100,7 +100,56 @@ robyn_allocator <- function(robyn_object = NULL,
                             maxeval = 100000,
                             constr_mode = "eq",
                             ui = FALSE) {
-
+  
+  
+  ########################## set graph colour scheme
+  
+  gtb_colors <- c(
+    'pink'      = "#ed0d6d",
+    'orange'    = "#f36c23",
+    'blue'      = "#53d3d2",
+    'white'     = "#ffffff",
+    'black'     = "#000000",
+    'light grey' = "#cccccc",
+    'dark grey'  = "#8c8c8c")
+  
+  gtb_cols <- function(...) {
+    cols <- c(...)
+    if (is.null(cols))
+      return (gtb_colors)
+    gtb_colors[cols]
+  }
+  
+  gtb_palettes <- list(
+    `main`  = gtb_cols("pink", "orange", "blue", "black", "white"),
+    `mixed` = gtb_cols("pink", "orange", "blue", "black", "white", "light grey", "dark grey")
+  )
+  
+  gtb_pal <- function(palette = "main", reverse = FALSE, ...) {
+    pal <- gtb_palettes[[palette]]
+    if (reverse) pal <- rev(pal)
+    colorRampPalette(pal, ...)
+  }
+  
+  scale_color_gtb <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...) {
+    pal <- gtb_pal(palette = palette, reverse = reverse)
+    if (discrete) {
+      discrete_scale("colour", paste0("gtb_", palette), palette = pal, ...)
+    } else {
+      scale_color_gradientn(colours = pal(256), ...)
+    }
+  }
+  
+  scale_fill_gtb <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...) {
+    pal <- gtb_pal(palette = palette, reverse = reverse)
+    
+    if (discrete) {
+      discrete_scale("fill", paste0("gtb_", palette), palette = pal, ...)
+    } else {
+      scale_fill_gradientn(colours = pal(256), ...)
+    }
+  }
+  
   #####################################
   #### Set local environment
 
@@ -393,7 +442,8 @@ robyn_allocator <- function(robyn_object = NULL,
     }
     expSpendUnitTotal <- expected_spend / (expected_spend_days / InputCollect$dayInterval)
   }
-
+  
+  
   histSpend <- xDecompAggMedia[, .(rn, total_spend)]
   histSpend <- histSpend$total_spend
   names(histSpend) <- sort(InputCollect$paid_media_vars)
@@ -406,6 +456,7 @@ robyn_allocator <- function(robyn_object = NULL,
   names(histSpendUnit) <- mediaVarSortedFiltered
   #histSpendShare <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, spend_share]
   histSpendShare <- histSpendUnit/sum(histSpendUnit)
+  # histSpendShare <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, visit_share]
   names(histSpendShare) <- mediaVarSortedFiltered
 
   # QA: check if objective function correctly implemented
@@ -525,33 +576,18 @@ robyn_allocator <- function(robyn_object = NULL,
   plotDT_roi[, channels := factor(channels, levels = chn_levels)]
   setnames(plotDT_roi, names(plotDT_roi), new = c("channel", "initial roi", "optimised roi"))
 
-
   plotDT_roi <- suppressWarnings(melt.data.table(plotDT_roi, id.vars = "channel", value.name = "roi"))
-  p11 <- ggplot(plotDT_roi, aes(x = channel, y = roi, fill = variable)) +
+  p11 <- ggplot(plotDT_roi, aes(x=channel, y=roi,fill = variable)) +
     geom_bar(stat = "identity", width = 0.5, position = "dodge") +
     coord_flip() +
-    scale_fill_brewer(palette = "Paired") +
-    geom_text(aes(label = round(roi, 2), hjust = 1, size = 2.0),
-      position = position_dodge(width = 0.5), fontface = "bold", show.legend = FALSE
-    ) +
-    theme(
-      legend.title = element_blank(), legend.position = c(0.9, 0.2),
-      axis.text.x = element_blank(), legend.background = element_rect(
-        colour = "grey", fill = "transparent"
-      )
-    ) +
-    labs(
-      title = "Initial vs. optimised mean ROI",
-      subtitle = paste0(
-        "Total spend increases ", plotDT_total[
-          , round(mean(optmSpendUnitTotalDelta) * 100, 1)
-        ], "%",
-        "\nTotal response increases ", plotDT_total[
-          , round(mean(optmResponseUnitTotalLift) * 100, 1)
-        ], "% with optimised spend allocation"
-      ),
-      y = "", x = "Channels"
-    )
+    scale_color_gtb() +
+    #scale_fill_brewer(palette = "Paired") +
+    geom_text(aes(label=round(roi,2), hjust=1, size=2.0),  position=position_dodge(width=0.5), fontface = "bold", show.legend = FALSE) +
+    theme( legend.title = element_blank(), legend.position = c(0.9, 0.2) ,axis.text.x = element_blank(), legend.background=element_rect(colour = gtb_cols("dark grey"), fill='transparent')) +
+    labs(title = "Initial vs. optimised mean ROI"
+         ,subtitle = paste0("Total visits increase ", plotDT_total[, round(mean(optmSpendUnitTotalDelta)*100,1)], "%"
+                            ,"\nTotal sales increase ", plotDT_total[, round(mean(optmResponseUnitTotalLift)*100,1)], "% with optimised visit allocation")
+         ,y="", x="Channels")
 
   # Response comparison plot
   plotDT_resp <- plotDT_total[, c("channels", "initResponseUnit", "optmResponseUnit")][order(rank(channels))]
@@ -560,33 +596,21 @@ robyn_allocator <- function(robyn_object = NULL,
   plotDT_resp[, channels := factor(channels, levels = chn_levels)]
   setnames(plotDT_resp, names(plotDT_resp), new = c("channel", "initial response / time unit", "optimised response / time unit"))
 
+
   plotDT_resp <- suppressWarnings(melt.data.table(plotDT_resp, id.vars = "channel", value.name = "response"))
-  p12 <- ggplot(plotDT_resp, aes(x = channel, y = response, fill = variable)) +
+  p12 <- ggplot(plotDT_resp, aes(x=channel, y=response, fill = variable)) +
     geom_bar(stat = "identity", width = 0.5, position = "dodge") +
     coord_flip() +
-    scale_fill_brewer(palette = "Paired") +
-    geom_text(aes(label = round(response, 0), hjust = 1, size = 2.0),
-      position = position_dodge(width = 0.5), fontface = "bold", show.legend = FALSE
-    ) +
-    theme(
-      legend.title = element_blank(), legend.position = c(0.8, 0.2),
-      axis.text.x = element_blank(), legend.background = element_rect(
-        colour = "grey", fill = "transparent"
-      )
-    ) +
-    labs(
-      title = "Initial vs. optimised mean response",
-      subtitle = paste0(
-        "Total spend increases ", plotDT_total[
-          , round(mean(optmSpendUnitTotalDelta) * 100, 1)
-        ], "%",
-        "\nTotal response increases ", plotDT_total[
-          , round(mean(optmResponseUnitTotalLift) * 100, 1)
-        ], "% with optimised spend allocation"
-      ),
-      y = "", x = "Channels"
-    )
-
+    scale_color_gtb() +
+    #scale_fill_brewer(palette = "Paired") +
+    geom_text(aes(label=round(response,0), hjust=1, size=2.0), position=position_dodge(width=0.5), fontface = "bold", show.legend = FALSE) +
+    theme( legend.title = element_blank(), legend.position = c(0.8, 0.2) ,axis.text.x = element_blank(), legend.background=element_rect(colour=gtb_cols("dark grey"), fill='transparent')) +
+    labs(title = "Initial vs. optimised mean response"
+         ,subtitle = paste0("Total visits increase ", plotDT_total[, round(mean(optmSpendUnitTotalDelta)*100,1)], "%"
+                            ,"\nTotal sales increase ", plotDT_total[, round(mean(optmResponseUnitTotalLift)*100,1)], "% with optimised visit allocation"
+         )
+         ,y="", x="Channels")
+  
   # budget share comparison plot
   plotDT_share <- plotDT_total[, c("channels", "initSpendShare", "optmSpendShareUnit")][order(rank(channels))]
   plotDT_share[, channels := as.factor(channels)]
@@ -594,28 +618,20 @@ robyn_allocator <- function(robyn_object = NULL,
   plotDT_share[, channels := factor(channels, levels = chn_levels)]
   setnames(plotDT_share, names(plotDT_share), new = c("channel", "initial avg.spend share", "optimised avg.spend share"))
 
+
   plotDT_share <- suppressWarnings(melt.data.table(plotDT_share, id.vars = "channel", value.name = "spend_share"))
-  p13 <- ggplot(plotDT_share, aes(x = channel, y = spend_share, fill = variable)) +
+  p13 <- ggplot(plotDT_share, aes(x=channel, y=spend_share, fill = variable)) +
     geom_bar(stat = "identity", width = 0.5, position = "dodge") +
     coord_flip() +
-    scale_fill_brewer(palette = "Paired") +
-    geom_text(aes(label = paste0(round(spend_share * 100, 2), "%"), hjust = 1, size = 2.0),
-      position = position_dodge(width = 0.5), fontface = "bold", show.legend = FALSE
-    ) +
-    theme(
-      legend.title = element_blank(), legend.position = c(0.8, 0.2),
-      axis.text.x = element_blank(), legend.background = element_rect(
-        colour = "grey", fill = "transparent"
-      )
-    ) +
-    labs(
-      title = "Initial vs. optimised budget allocation",
-      subtitle = paste0(
-        "Total spend increases ", plotDT_total[, round(mean(optmSpendUnitTotalDelta) * 100, 1)], "%",
-        "\nTotal response increases ", plotDT_total[, round(mean(optmResponseUnitTotalLift) * 100, 1)], "% with optimised spend allocation"
-      ),
-      y = "", x = "Channels"
-    )
+    scale_color_gtb() +
+    #scale_fill_brewer(palette = "Paired") +
+    geom_text(aes(label=paste0(round(spend_share*100,2),"%"), hjust=1, size=2.0), position=position_dodge(width=0.5), fontface = "bold", show.legend = FALSE) +
+    theme( legend.title = element_blank(), legend.position = c(0.8, 0.2) ,axis.text.x = element_blank(), legend.background=element_rect(colour= gtb_cols("dark grey"), fill='transparent')) +
+    labs(title = "Initial vs. optimised visit allocation"
+         ,subtitle = paste0("Total visits increase ", plotDT_total[, round(mean(optmSpendUnitTotalDelta)*100,1)], "%"
+                            ,"\nTotal sales increase ", plotDT_total[, round(mean(optmResponseUnitTotalLift)*100,1)], "% with optimised visit allocation"
+         )
+         ,y="", x="Channels")
 
 
   ## response curve
@@ -643,28 +659,23 @@ robyn_allocator <- function(robyn_object = NULL,
   )
   setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
 
-  p14 <- ggplot(data = plotDT_scurve, aes(x = spend, y = response, color = channel)) +
+  
+  p14 <- ggplot(data= plotDT_scurve, aes(x=spend, y=response, color = channel)) +
     geom_line() +
-    geom_point(data = dt_optimOutScurve, aes(
-      x = spend, y = response, color = channels, shape = type
-    ), size = 2) +
-    geom_text(
-      data = dt_optimOutScurve, aes(
-        x = spend, y = response, color = channels, label = round(spend, 0)
-      ),
-      show.legend = FALSE, hjust = -0.2
-    ) +
-    theme(legend.position = c(0.9, 0.4), legend.title = element_blank()) +
-    labs(
-      title = "Response curve and mean spend by channel",
-      subtitle = paste0(
-        "rsq_train: ", plotDT_scurveMeanResponse[, round(mean(rsq_train), 4)],
-        ", nrmse = ", plotDT_scurveMeanResponse[, round(mean(nrmse), 4)],
-        ", decomp.rssd = ", plotDT_scurveMeanResponse[, round(mean(decomp.rssd), 4)],
-        ", mape.lift = ", plotDT_scurveMeanResponse[, round(mean(mape), 4)]
-      ),
-      x = "Spend", y = "response"
-    )
+    geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
+    geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
+    facet_zoom(xlim = c(0, 50000), ylim = c(0,0.15)) +
+    scale_color_gtb() +
+    #geom_point(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, fill = "optimised"), shape=2) +
+    #geom_text(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, label = round(optmSpendUnit,0)),  show.legend = F, hjust = -0.2) +
+    theme(legend.position = c(0.9, 0.4), legend.title=element_blank()) +
+    labs(title="Response curve and mean visits by channel"
+         ,subtitle = paste0("rsq_train: ", plotDT_scurveMeanResponse[,round(mean(rsq_train),4)], 
+                            ", nrmse = ", plotDT_scurveMeanResponse[, round(mean(nrmse),4)], 
+                            ", decomp.rssd = ", plotDT_scurveMeanResponse[, round(mean(decomp.rssd),4)],
+                            ", mape.lift = ", plotDT_scurveMeanResponse[, round(mean(mape),4)])
+         ,x="Visits" ,y="response")
+  
 
   grobTitle <- paste0("Budget allocator optimum result for model ID ", select_model)
   g <- (p13 + p12) / p14 + plot_annotation(

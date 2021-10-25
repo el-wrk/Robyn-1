@@ -12,53 +12,64 @@
 #### Step 0: setup environment
 
 ## Install and load libraries
-# install.packages("remotes") # Install remotes first if not already happend
-library(Robyn) # remotes::install_github("facebookexperimental/Robyn/R")
-set.seed(123)
+# install.packages('remotes')
+devtools::install_github("el-wrk/Robyn/R", force= TRUE)
 
+library(Robyn)
+library(reticulate)
+library(data.table) 
+library(stringr)
+library(dplyr)
+library(ggforce)
+
+set.seed(123)
 ## force multicore when using RStudio
 Sys.setenv(R_FUTURE_FORK_ENABLE="true")
 options(future.fork.enable = TRUE)
 
 ## Must install the python library Nevergrad once
-## ATTENTION: The latest Python 3.10 version will cause Nevergrad installation error
-## See here for more info about installing Python packages via reticulate
+## please see here for more info about installing Python packages via reticulate
 ## https://rstudio.github.io/reticulate/articles/python_packages.html
 
-## Load library(reticulate)
 ## Option 1: nevergrad installation via PIP
 # virtualenv_create("r-reticulate")
-# use_virtualenv("r-reticulate", required = TRUE)
 # py_install("nevergrad", pip = TRUE)
+# use_virtualenv("r-reticulate", required = TRUE)
 
 ## Option 2: nevergrad installation via conda
-# conda_create("r-reticulate", "Python 3.9") # Only works with <= Python 3.9 sofar
-# use_condaenv("r-reticulate")
-# conda_install("r-reticulate", "nevergrad", pip=TRUE)
+# conda_create("r-reticulate") # must run this line once
+conda_install("r-reticulate", "nevergrad", pip=TRUE)
+use_condaenv("r-reticulate")
 
-## In case nevergrad still can't be installed,
+## In case nevergrad still can't be imported after installation,
 ## please locate your python file and run this line with your path:
 # use_python("~/Library/r-miniconda/envs/r-reticulate/bin/python3.9")
-# Alternatively, force Python path for reticulate with this:
-# Sys.setenv(RETICULATE_PYTHON = "~/Library/r-miniconda/envs/r-reticulate/bin/python3.9")
-# Finally, re-install Nevergrad with option 1 or 2 above
-# Check this issue for more ideas https://github.com/facebookexperimental/Robyn/issues/189
+
 
 ################################################################
 #### Step 1: load data
+set_country <- "DE" # Including national holidays for 59 countries, whose list can be found on our github guide 
+# script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
+#myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
+add <- "" # _ + sales leads orders reprise 
 
 ## Check simulated dataset or load your own dataset
-data("dt_simulated_weekly")
+# data("dt_simulated_weekly")
+dt_simulated_weekly <- fread(paste0('~/GitHub/Robyn-results-private/data/input data/input_', set_country, add, '.csv')) # input time series should be daily, weekly or monthly
+dt_simulated_weekly[is.na(dt_simulated_weekly)] <- 0
 head(dt_simulated_weekly)
+print(min(dt_simulated_weekly$DATE))
+print(max(dt_simulated_weekly$DATE))
 
 ## Check holidays from Prophet
 # 59 countries included. If your country is not included, please manually add it.
-# Tipp: any events can be added into this table, school break, events etc.
-data("dt_prophet_holidays")
+# Tip: any events can be added into this table, school break, events etc.
+# data("dt_prophet_holidays")
+dt_prophet_holidays <- fread(paste0('~/GitHub/Robyn-results-private/data/holidays data/holidays-', set_country, '.csv')) # input time series should be daily, weekly or monthly
 head(dt_prophet_holidays)
 
 ## Set robyn_object. It must have extension .RDS. The object name can be different than Robyn:
-robyn_object <- "~/Desktop/MyRobyn.RDS"
+robyn_object <- paste0("~/GitHub/Robyn-results-private/models/Robyn_", set_country, add, ".RDS")
 
 ################################################################
 #### Step 2a: For first time user: Model specification in 4 steps
@@ -73,73 +84,66 @@ InputCollect <- robyn_inputs(
   ### set variables
 
   ,date_var = "DATE" # date format must be "2020-01-01"
-  ,dep_var = "revenue" # there should be only one dependent variable
+  ,dep_var = "sales" # there should be only one dependent variable
   ,dep_var_type = "revenue" # "revenue" or "conversion"
 
-  ,prophet_vars = c("trend", "season", "holiday") # "trend","season", "weekday", "holiday"
+  ,prophet_vars = c("trend", "season", "holiday", "weekday") # "trend","season", "weekday", "holiday"
   # are provided and case-sensitive. Recommended to at least keep Trend & Holidays
-  ,prophet_signs = c("default","default", "default") # c("default", "positive", and "negative").
-  # Recommend as default.Must be same length as prophet_vars
-  ,prophet_country = "DE"# only one country allowed once. Including national holidays
-  # for 59 countries, whose list can be found on our githut guide
+  ,prophet_signs = c("default", "default", "default", "default") # c("default", "positive", and "negative").
+  # Recommend as default. Must be same length as prophet_vars
+  ,prophet_country = set_country # only one country allowed once. Including national holidays
+  # for 59 countries, whose list can be found on our github guide
 
-  ,context_vars = c("competitor_sales_B", "events") # typically competitors, price &
+  ,context_vars = c("qr_v", "ford_domain_v") # typically competitors, price &
   # promotion, temperature, unemployment rate etc
   ,context_signs = c("default", "default") # c("default", " positive", and "negative"),
   # control the signs of coefficients for baseline variables
 
-  ,paid_media_vars = c("tv_S", "ooh_S"	,	"print_S"	,"facebook_I" ,"search_clicks_P")
-  # c("tv_S"	,"ooh_S",	"print_S"	,"facebook_I", "facebook_S","search_clicks_P"	,"search_S")
+  ,paid_media_vars = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v")
   # we recommend to use media exposure metrics like impressions, GRP etc for the model.
   # If not applicable, use spend instead
-  ,paid_media_signs = c("positive", "positive","positive", "positive", "positive")
+  ,paid_media_signs = c("positive", "positive", "positive", "positive", "positive", "positive")
   # c("default", "positive", and "negative"). must have same length as paid_media_vars.
   # Controls the signs of coefficients for media variables
-  ,paid_media_spends = c("tv_S","ooh_S",	"print_S"	,"facebook_S", "search_S")
+  ,paid_media_spends = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v")
   # spends must have same order and same length as paid_media_vars
 
-  ,organic_vars = c("newsletter")
-  ,organic_signs = c("positive") # must have same length as organic_vars
+  ,organic_vars = c("n_search_v", "internal_v")
+  ,organic_signs = c("positive", "positive") # must have same length as organic_vars
 
-  ,factor_vars = c("events") # specify which variables in context_vars and
+  # ,factor_vars = c("") # specify which variables in context_vars and
   # organic_vars are factorial
 
   ### set model parameters
 
   ## set cores for parallel computing
   ,cores = 6 # I am using 6 cores from 8 on my local machine. Use future::availableCores() to find out cores
-
+  
   ## set rolling window start
-  ,window_start = "2016-11-23"
-  ,window_end = "2018-08-22"
+  ,window_start = "2020-07-31"
+  ,window_end = "2021-01-31"
 
   ## set model core features
-  ,adstock = "geometric" # geometric, weibull_cdf or weibull_pdf. Both weibull adstocks are more flexible
-  # due to the changing decay rate over time, as opposed to the fixed decay rate for geometric. weibull_pdf
-  # allows also lagging effect. Yet weibull adstocks are two-parametric and thus take longer to run.
-  ,iterations = 2000  # number of allowed iterations per trial. For the simulated dataset with 11 independent
-  # variables, 2000 is recommended for Geometric adsttock, 4000 for weibull_cdf and 6000 for weibull_pdf.
-  # The larger the dataset, the more iterations required to reach convergence.
+  ,adstock = "weibull" # geometric or weibull. weibull is more flexible, yet has one more
+  # parameter and thus takes longer
+  ,iterations = 2000  # number of allowed iterations per trial. 2000 is recommended (500, 2000), minimum of 1000
 
+  # set_hyperOptimAlgo <- "NaiveTBPSA" 
   ,nevergrad_algo = "TwoPointsDE" # recommended algorithm for Nevergrad, the gradient-free
   # optimisation library https://facebookresearch.github.io/nevergrad/index.html
-  ,trials = 5 # number of allowed iterations per trial. 5 is recommended without calibration,
+  ,trials = 5 # number of allowed iterations per trial. 5 is recommended without calibration, (3, 5), miminum of 3
   # 10 with calibration.
 
   # Time estimation: with geometric adstock, 2000 iterations * 5 trials
-  # and 6 cores, it takes less than 1 hour. Both Weibull adstocks take up to twice as much time.
+  # and 6 cores, it takes less than 1 hour. Weibull takes at least twice as much time.
 )
 
 
 #### 2a-2: Second, define and add hyperparameters
 
-## Guide to setup & understand hyperparameters
+## Guide to setup hyperparameters
 
-## 1. IMPORTANT: check helper plots to see hyperparameter's effect in transformation
-plot_adstock(plot = FALSE)
-plot_saturation(plot = FALSE)
-
-## 2. Get correct hyperparameter names:
+## 1. get correct hyperparameter names:
 # All variables in paid_media_vars or organic_vars require hyperprameter and will be
 # transformed by adstock & saturation.
 # Difference between paid_media_vars and organic_vars is that paid_media_vars has spend that
@@ -147,87 +151,92 @@ plot_saturation(plot = FALSE)
 # Run hyper_names() to get correct hyperparameter names. all names in hyperparameters must
 # equal names from hyper_names(), case sensitive.
 
-## 3. Hyperparameter interpretation & recommendation:
+## 2. get guidance for setting hyperparameter bounds:
+# For geometric adstock, use theta, alpha & gamma. For weibull adstock,
+# use shape, scale, alpha, gamma.
+# Theta: In geometric adstock, theta is decay rate. guideline for usual media genre:
+# TV c(0.3, 0.8), OOH/Print/Radio c(0.1, 0.4), digital c(0, 0.3)
+# Shape: In weibull adstock, shape controls the decay shape. Recommended c(0.0001, 2).
+# The larger, the more S-shape. The smaller, the more L-shape. Channel-type specific
+# values still to be investigated
+# Scale: In weibull adstock, scale controls the decay inflexion point. Very conservative
+# recommended bounce c(0, 0.1), becausee scale can increase adstocking half-life greaetly.
+# Channel-type specific values still to be investigated
+# Alpha: In s-curve transformation with hill function, alpha controls the shape between
+# exponential and s-shape. Recommended c(0.5, 3). The larger the alpha, the more S-shape.
+# The smaller, the more C-shape
+# Gamma: In s-curve transformation with hill function, gamma controls the inflexion point.
+# Recommended bounce c(0.3, 1). The larger the gamma, the later the inflection point
+# in the response curve
 
-## Geometric adstock: Theta is the only parameter and means fixed decay rate. Assuming TV
-# spend on day 1 is 100€ and theta = 0.7, then day 2 has 100*0.7=70€ worth of effect
-# carried-over from day 1, day 3 has 70*0.7=49€ from day 2 etc. Rule-of-thumb for common
-# media genre: TV c(0.3, 0.8), OOH/Print/Radio c(0.1, 0.4), digital c(0, 0.3)
+# helper plots: set plot to TRUE for transformation examples
+plot_adstock(FALSE) # adstock transformation example plot,
+# helping you understand geometric/theta and weibull/shape/scale transformation
+plot_saturation(FALSE) # s-curve transformation example plot,
+# helping you understand hill/alpha/gamma transformatio
 
-## Weibull CDF adstock: The Cumulative Distribution Function of Weibull has two parameters
-# , shape & scale, and has flexible decay rate, compared to Geometric adstock with fixed
-# decay rate. The shape parameter controls the shape of the decay curve. Recommended
-# bound is c(0.0001, 2). The larger the shape, the more S-shape. The smaller, the more
-# L-shape. Scale controls the inflexion point of the decay curve. We recommend very
-# conservative bounce of c(0, 0.1), because scale increases the adstock half-life greatly.
 
-## Weibull PDF adstock: The Probability Density Function of the Weibull also has two
-# parameters, shape & scale, and also has flexible decay rate as Weibull CDF. The
-# difference is that Weibull PDF offers lagged effect. When shape > 2, the curve peaks
-# after x = 0 and has NULL slope at x = 0, enabling lagged effect and sharper increase and
-# decrease of adstock, while the scale parameter indicates the limit of the relative
-# position of the peak at x axis; when 1 < shape < 2, the curve peaks after x = 0 and has
-# infinite positive slope at x = 0, enabling lagged effect and slower increase and decrease
-# of adstock, while scale has the same effect as above; when shape = 1, the curve peaks at
-# x = 0 and reduces to exponential decay, while scale controls the inflexion point; when
-# 0 < shape < 1, the curve peaks at x = 0 and has increasing decay, while scale controls
-# the inflexion point. When all possible shapes are relevant, we recommend c(0.0001, 10)
-# as bounds for shape; when only strong lagged effect is of interest, we recommend
-# c(2.0001, 10) as bound for shape. In all cases, we recommend conservative bound of
-# c(0, 0.1) for scale. Due to the great flexibility of Weibull PDF, meaning more freedom
-# in hyperparameter spaces for Nevergrad to explore, it also requires larger iterations
-# to converge.
-
-## Hill function as saturation: Hill function is a two-parametric function in Robyn with
-# alpha and gamma. Alpha controls the shape of the curve between exponential and s-shape.
-# Recommended bound is c(0.5, 3). The larger the alpha, the more S-shape. The smaller, the
-# more C-shape. Gamma controls the inflexion point. Recommended bounce is c(0.3, 1). The
-# larger the gamma, the later the inflection point in the response curve.
-
-## 4. Set each hyperparameter bounds. They either contains two values e.g. c(0, 0.5),
+## 3. set each hyperparameter bounds. They either contains two values e.g. c(0, 0.5),
 # or only one value (in which case you've "fixed" that hyperparameter)
 
 # Run ?hyper_names to check parameter definition
 hyper_names(adstock = InputCollect$adstock, all_media = InputCollect$all_media)
 
-# Example hyperparameters for Geometric adstock
 hyperparameters <- list(
-  facebook_I_alphas = c(0.5, 3)
-  ,facebook_I_gammas = c(0.3, 1)
-  ,facebook_I_thetas = c(0, 0.3)
+  
+  direct_v_alphas = c(0.5, 3)
+  ,direct_v_gammas = c(0.3, 1)
+  ,direct_v_shapes = c(0.0001, 2)
+  ,direct_v_scales = c(0, 0.1)
+  
+  ,display_v_alphas = c(0.5, 3)
+  ,display_v_gammas = c(0.3, 1)
+  ,display_v_shapes = c(0.0001, 2)
+  ,display_v_scales = c(0, 0.1)
+  
+  ,email_v_alphas = c(0.5, 3)
+  ,email_v_gammas = c(0.3, 1)
+  ,email_v_shapes = c(0.0001, 2)
+  ,email_v_scales = c(0, 0.1)
+  
+  ,internal_v_alphas = c(0.5, 3)
+  ,internal_v_gammas = c(0.3, 1)
+  ,internal_v_shapes = c(0.0001, 2)
+  ,internal_v_scales = c(0, 0.1)
+  
+  # ,ford_domain_v_alphas = c(0.5, 3)
+  # ,ford_domain_v_gammas = c(0.3, 1)
+  # ,ford_domain_v_shapes = c(0.0001, 2)
+  # ,ford_domain_v_scales = c(0, 0.1)
+  
+  ,referrer_v_alphas = c(0.5, 3)
+  ,referrer_v_gammas = c(0.3, 1)
+  ,referrer_v_shapes = c(0.0001, 2)
+  ,referrer_v_scales = c(0, 0.1)
+  
+  ,social_v_alphas = c(0.5, 3)
+  ,social_v_gammas = c(0.3, 1)
+  ,social_v_shapes = c(0.0001, 2)
+  ,social_v_scales = c(0, 0.1)
+  
+  ,n_search_v_alphas = c(0.5, 3)
+  ,n_search_v_gammas = c(0.3, 1)
+  ,n_search_v_shapes = c(0.0001, 2)
+  ,n_search_v_scales = c(0, 0.1)
 
-  ,print_S_alphas = c(0.5, 3)
-  ,print_S_gammas = c(0.3, 1)
-  ,print_S_thetas = c(0.1, 0.4)
-
-  ,tv_S_alphas = c(0.5, 3)
-  ,tv_S_gammas = c(0.3, 1)
-  ,tv_S_thetas = c(0.3, 0.8)
-
-  ,search_clicks_P_alphas = c(0.5, 3)
-  ,search_clicks_P_gammas = c(0.3, 1)
-  ,search_clicks_P_thetas = c(0, 0.3)
-
-  ,ooh_S_alphas = c(0.5, 3)
-  ,ooh_S_gammas = c(0.3, 1)
-  ,ooh_S_thetas = c(0.1, 0.4)
-
-  ,newsletter_alphas = c(0.5, 3)
-  ,newsletter_gammas = c(0.3, 1)
-  ,newsletter_thetas = c(0.1, 0.4)
+  ,p_search_v_alphas = c(0.5, 3)
+  ,p_search_v_gammas = c(0.3, 1)
+  ,p_search_v_shapes = c(0.0001, 2)
+  ,p_search_v_scales = c(0, 0.1)
+  
+  #weibull - need TV spot data
+  #,tv_v_alphas = c(0.5, 3)
+  #,tv_v_gammas = c(0.3, 1)
+  #,tv_v_shapes = c(0.0001, 2)
+  #,tv_v_scales = c(0, 0.1)
+  
 )
 
-# Example hyperparameters for Weibull CDF adstock
-# facebook_I_alphas = c(0.5, 3)
-# facebook_I_gammas = c(0.3, 1)
-# facebook_I_shapes = c(0.0001, 2)
-# facebook_I_scales = c(0, 0.1)
-
-# Example hyperparameters for Weibull PDF adstock
-# facebook_I_alphas = c(0.5, 3
-# facebook_I_gammas = c(0.3, 1)
-# facebook_I_shapes = c(0.0001, 10)
-# facebook_I_scales = c(0, 0.1)
 
 #### 2a-3: Third, add hyperparameters into robyn_inputs()
 
@@ -303,8 +312,6 @@ OutputCollect <- robyn_run(
   , plot_folder = robyn_object # plots will be saved in the same folder as robyn_object
   , pareto_fronts = 3
   , plot_pareto = TRUE
-  # , calibration_constraint = 0.1 # run ?robyn_run to see description
-  # , lambda_control = 1 # run ?robyn_run to see description
   )
 
 ## Besides one-pager plots: there are 4 csv output saved in the folder for further usage
@@ -321,7 +328,7 @@ OutputCollect <- robyn_run(
 ## your business reality
 
 OutputCollect$allSolutions # get all model IDs in result
-select_model <- "2_8_1" # select one from above
+select_model <- "2_288_4" # select one from above
 robyn_save(robyn_object = robyn_object # model object location and name
            , select_model = select_model # selected model ID
            , InputCollect = InputCollect # all model input
@@ -348,8 +355,8 @@ AllocatorCollect <- robyn_allocator(
   , OutputCollect = OutputCollect
   , select_model = select_model
   , scenario = "max_historical_response"
-  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7)
-  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5)
+  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5, 1.5)
 )
 
 # View allocator result. Last column "optmResponseUnitTotalLift" is the total response lift.
@@ -363,8 +370,8 @@ AllocatorCollect <- robyn_allocator(
   , OutputCollect = OutputCollect
   , select_model = select_model
   , scenario = "max_response_expected_spend"
-  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7)
-  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5)
+  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5, 1.5)
   , expected_spend = 1000000 # Total spend to be simulated
   , expected_spend_days = 7 # Duration of expected_spend in days
 )
@@ -421,10 +428,10 @@ Robyn <- robyn_refresh(
 # Run ?robyn_allocator to check parameter definition
 AllocatorCollect <- robyn_allocator(
   robyn_object = robyn_object
-  , select_build = 3 # Use third refresh model
+  , select_build =  0# Use third refresh model
   , scenario = "max_response_expected_spend"
-  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7)
-  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5)
+  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5, 1.5)
   , expected_spend = 2000000 # Total spend to be simulated
   , expected_spend_days = 14 # Duration of expected_spend in days
 )
@@ -437,13 +444,14 @@ AllocatorCollect$dt_optimOut
 ## Example of how to get marginal ROI of next 1000$ from the 80k spend level for search channel
 
 # Run ?robyn_response to check parameter definition
+# "p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v")
 
 # Get response for 80k
 Spend1 <- 80000
 Response1 <- robyn_response(
   robyn_object = robyn_object
   #, select_build = 1 # 2 means the second refresh model. 0 means the initial model
-  , paid_media_var = "search_clicks_P"
+  , paid_media_var = "p_search_v"
   , spend = Spend1)
 Response1/Spend1 # ROI for search 80k
 
@@ -452,7 +460,7 @@ Spend2 <- Spend1+1000
 Response2 <- robyn_response(
   robyn_object = robyn_object
   #, select_build = 1
-  , paid_media_var = "search_clicks_P"
+  , paid_media_var = "direct_v"
   , spend = Spend2)
 Response2/Spend2 # ROI for search 81k
 
@@ -464,8 +472,8 @@ Response2/Spend2 # ROI for search 81k
 #### Optional: get old model results
 
 # Get old hyperparameters and select model
-dt_hyper_fixed <- data.table::fread("~/Desktop/2021-07-29 00.56 init/pareto_hyperparameters.csv")
-select_model <- "1_24_5"
+dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/runs/2021-10-22 11.44 init/pareto_hyperparameters.csv")
+select_model <- "5_265_4"
 dt_hyper_fixed <- dt_hyper_fixed[solID == select_model]
 
 OutputCollectFixed <- robyn_run(

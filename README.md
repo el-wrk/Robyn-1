@@ -91,7 +91,6 @@ We're very proud to see that there're already 100+ known users of Project Robyn 
   * **Automated output**: When using `robyn_run()` function to build the initial model, Robyn outputs an one-pager that contains 6 charts  for every Pareto-optimum model and saves 4 csv-files (pareto_hyperparameters.csv, pareto_aggregated.csv, pareto_media_transform_matrix.csv, pareto_alldecomp_matrix.csv) that contains all results. The 6 charts are: the effect decomposition waterfall chart, the actual vs. predicted fit line chart, the media spend vs. effect bar chart, the media saturation line chart, the adstock decay rate bar chart and the predicted vs. residual line chart. When using `robyn_refresh()` function to build refresh models, Robyn outputs 2 extra charts (aggregated actual vs. predicted line chart and aggregated decomposition bar chart) and saves 4 extra csv-files separately (report_hyperparameters.csv, report_aggregated.csv, report_media_transform_matrix.csv, report_alldecomp_matrix.csv). 
 
 ## Example plots
-
 ### Adstock helper plot
 This plot shows how the three adstock options, Geometric, Weibull CDF & Weibull PDF, are transforming as the parameter changes. 
 

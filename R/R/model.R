@@ -21,9 +21,6 @@
 #' \code{DECOMP.RSSD}. Increase \code{pareto_fronts} to get more model choices.
 #' @param plot_pareto Boolean. Set to \code{FALSE} to deactivate plotting
 #' and saving model one-pagers. Used when testing models.
-#' @param calibration_constraint Numeric. Default to 0.1 and allows 0.01-0.1. When
-#' calibrating, 0.1 means top 10% calibrated models are used for pareto-optimal
-#' selection. Lower \code{calibration_constraint} increases calibration accuracy.
 #' @param lambda_control Numeric. From 0-1. Tunes ridge lambda between
 #' lambda.min and lambda.1se
 #' @param refresh Boolean. Set to \code{TRUE} when used in \code{robyn_refresh()}
@@ -48,6 +45,72 @@ robyn_run <- function(InputCollect,
                       dt_hyper_fixed = NULL,
                       ui = FALSE) {
 
+  ########################## set graph colour scheme
+  
+  gtb_colors <- c(
+    'pink'      = "#ed0d6d",
+    'orange'    = "#f36c23",
+    'blue'      = "#53d3d2",
+    'white'     = "#ffffff",
+    'black'     = "#000000",
+    'light grey' = "#cccccc",
+    'dark grey'  = "#8c8c8c")
+  
+  gtb_cols <- function(...) {
+    cols <- c(...)
+    if (is.null(cols))
+      return (gtb_colors)
+    gtb_colors[cols]
+  }
+  
+  gtb_palettes <- list(
+    `main`  = gtb_cols("pink", "orange", "blue", "black"),
+    `mixed` = gtb_cols("pink", "orange", "blue", "black", "white", "light grey", "dark grey"),
+    `act_pred`  = gtb_cols("orange", "black")
+  )
+  
+  gtb_pal <- function(palette = "main", reverse = FALSE, ...) {
+    pal <- gtb_palettes[[palette]]
+    if (reverse) pal <- rev(pal)
+    colorRampPalette(pal, ...)
+  }
+  
+  scale_color_gtb <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...) {
+    pal <- gtb_pal(palette = palette, reverse = reverse)
+    if (discrete) {
+      discrete_scale("colour", paste0("gtb_", palette), palette = pal, ...)
+    } else {
+      scale_color_gradientn(colours = pal(256), ...)
+    }
+  }
+  
+  gtb_pal2 <- function(palette = "act_pred", reverse = FALSE, ...) {
+    pal <- gtb_palettes[[palette]]
+    if (reverse) pal <- rev(pal)
+    colorRampPalette(pal, ...)
+  }
+  
+  scale_color_gtb_actual_pred <- function(palette = "act_pred", discrete = TRUE, reverse = FALSE, ...) {
+    pal <- gtb_pal2(palette = palette, reverse = reverse)
+    if (discrete) {
+      discrete_scale("colour", paste0("gtb_", palette), palette = pal, ...)
+    } else {
+      scale_color_gradientn(colours = pal(256), ...)
+    }
+  }
+  
+  scale_fill_gtb <- function(palette = "main", discrete = TRUE, reverse = FALSE, ...) {
+    pal <- gtb_pal(palette = palette, reverse = reverse)
+    
+    if (discrete) {
+      discrete_scale("fill", paste0("gtb_", palette), palette = pal, ...)
+    } else {
+      scale_fill_gradientn(colours = pal(256), ...)
+    }
+  }
+  
+  ###################################################
+  
   #####################################
   #### Set local environment
 
@@ -103,11 +166,11 @@ robyn_run <- function(InputCollect,
     model_output_collect <- list()
     model_output_collect[[1]] <- robyn_mmm(
       hyper_collect = hyperparameters_fixed,
-      InputCollect = InputCollect,
+      InputCollect = InputCollect
       # ,iterations = iterations
       # ,cores = cores
       # ,optimizer_name = InputCollect$nevergrad_algo
-      lambda_fixed = dt_hyper_fixed$lambda
+      , lambda_fixed = dt_hyper_fixed$lambda
     )
 
     model_output_collect[[1]]$trial <- 1
@@ -145,7 +208,7 @@ robyn_run <- function(InputCollect,
     ))
 
     for (ngt in 1:InputCollect$trials) {
-      message(paste(" Running trial nr.", ngt))
+      message(paste(" Running trial nr.", ngt, "\n"))
       model_output <- robyn_mmm(
         hyper_collect = InputCollect$hyperparameters,
         InputCollect = InputCollect,
@@ -174,43 +237,43 @@ robyn_run <- function(InputCollect,
 
   #####################################
   #### Collect results for plotting
-
+  
   message(">>> Collecting results...")
-
+  
   ## collect hyperparameter results
   resultHypParam <- rbindlist(lapply(model_output_collect, function(x) x$resultCollect$resultHypParam[, trial := x$trial]))
   resultHypParam[, iterations := (iterNG - 1) * InputCollect$cores + iterPar]
   xDecompAgg <- rbindlist(lapply(model_output_collect, function(x) x$resultCollect$xDecompAgg[, trial := x$trial]))
   xDecompAgg[, iterations := (iterNG - 1) * InputCollect$cores + iterPar]
-
+  
   # if (hyper_fixed == FALSE) {
   resultHypParam[, solID := (paste(trial, iterNG, iterPar, sep = "_"))]
   xDecompAgg[, solID := (paste(trial, iterNG, iterPar, sep = "_"))]
   # }
   xDecompAggCoef0 <- xDecompAgg[rn %in% InputCollect$paid_media_vars, .(coef0 = min(coef) == 0), by = "solID"]
-
+  
   if (!hyper_fixed) {
     mape_lift_quantile10 <- quantile(resultHypParam$mape, probs = calibration_constraint)
     nrmse_quantile90 <- quantile(resultHypParam$nrmse, probs = 0.90)
     decomprssd_quantile90 <- quantile(resultHypParam$decomp.rssd, probs = 0.90)
     resultHypParam <- resultHypParam[xDecompAggCoef0, on = "solID"]
     resultHypParam[, mape.qt10 := mape <= mape_lift_quantile10 & nrmse <= nrmse_quantile90 & decomp.rssd <= decomprssd_quantile90]
-
-
+    
+    
     resultHypParamPareto <- resultHypParam[mape.qt10 == TRUE]
     px <- rPref::low(resultHypParamPareto$nrmse) * rPref::low(resultHypParamPareto$decomp.rssd)
     resultHypParamPareto <- rPref::psel(resultHypParamPareto, px, top = nrow(resultHypParamPareto))[order(iterNG, iterPar, nrmse)]
     setnames(resultHypParamPareto, ".level", "robynPareto")
-
+    
     setkey(resultHypParam, solID)
     setkey(resultHypParamPareto, solID)
     resultHypParam <- merge(resultHypParam, resultHypParamPareto[, .(solID, robynPareto)], all.x = TRUE)
   } else {
     resultHypParam[, ":="(mape.qt10 = TRUE, robynPareto = 1, coef0 = NA)]
   }
-
+  
   xDecompAgg <- xDecompAgg[resultHypParam, robynPareto := i.robynPareto, on = c("iterNG", "iterPar", "trial")]
-
+  
   decompSpendDist <- rbindlist(lapply(model_output_collect, function(x) x$resultCollect$decompSpendDist[, trial := x$trial]))
   decompSpendDist <- decompSpendDist[resultHypParam, robynPareto := i.robynPareto, on = c("iterNG", "iterPar", "trial")]
   if (hyper_fixed == FALSE) {
@@ -220,7 +283,7 @@ robyn_run <- function(InputCollect,
     resultHypParam[, solID := unique(decompSpendDist$solID)]
   }
   decompSpendDist <- decompSpendDist[xDecompAgg[rn %in% InputCollect$paid_media_vars, .(rn, xDecompAgg, solID)], on = c("rn", "solID")]
-
+  
   ## get mean_response
   registerDoFuture()
   if (.Platform$OS.type == "unix") {
@@ -228,7 +291,7 @@ robyn_run <- function(InputCollect,
   } else {
     plan(sequential)
   }
-
+  
   # if (hyper_fixed == FALSE) {pb <- txtProgressBar(min=1, max = length(decompSpendDist$rn), style = 3)}
   pareto_fronts_vec <- 1:pareto_fronts
   decompSpendDistPar <- decompSpendDist[robynPareto %in% pareto_fronts_vec]
@@ -253,7 +316,7 @@ robyn_run <- function(InputCollect,
   #if (hyper_fixed == FALSE) close(pb)
   registerDoSEQ()
   getDoParWorkers()
-
+  
   setkey(decompSpendDist, solID, rn)
   setkey(resp_collect, solID, rn)
   decompSpendDist <- merge(decompSpendDist, resp_collect, all.x=TRUE)
@@ -271,16 +334,22 @@ robyn_run <- function(InputCollect,
       NA
     })]
   # decompSpendDist[, roi := xDecompMeanNon0/mean_spend]
-
+  
   setkey(xDecompAgg, solID, rn)
   setkey(decompSpendDist, solID, rn)
   xDecompAgg <- merge(xDecompAgg, decompSpendDist[, .(rn, solID, total_spend, mean_spend, spend_share, effect_share, roi_mean, roi_total, cpa_total)], all.x = TRUE)
-
-
+  
+  # rename spend_share to visit_share
+  xDecompAgg = xDecompAgg %>% 
+    rename(
+      visit_share = spend_share
+    )
+  
   #####################################
   #### Plot overview
-
+  print("Saving plots...")
   ## set folder to save plat
+  
   if (!exists("plot_folder_sub")) {
     folder_var <- ifelse(!refresh, "init", paste0("rf", InputCollect$refreshCounter))
     plot_folder_sub <- paste0(format(Sys.time(), "%Y-%m-%d %H.%M"), " ", folder_var)
@@ -295,7 +364,7 @@ robyn_run <- function(InputCollect,
     pareto_fronts_vec <- 1
     num_pareto123 <- nrow(resultHypParam)
   }
-
+  
   message(paste0(">>> Exporting all charts into directory: ", plot_folder, "/", plot_folder_sub, "..."))
 
   message(">>> Plotting summary charts...")
@@ -419,7 +488,7 @@ robyn_run <- function(InputCollect,
     plotMediaShare <- xDecompAgg[robynPareto == pf & rn %in% InputCollect$paid_media_vars]
     plotWaterfall <- xDecompAgg[robynPareto == pf]
     uniqueSol <- plotMediaShare[, unique(solID)]
-
+    
     for (j in 1:length(uniqueSol)) {
       cnt <- cnt + 1
 
@@ -429,38 +498,35 @@ robyn_run <- function(InputCollect,
       nrmse_plot <- plotMediaShareLoop[, round(unique(nrmse), 4)]
       decomp_rssd_plot <- plotMediaShareLoop[, round(unique(decomp.rssd), 4)]
       mape_lift_plot <- ifelse(!is.null(InputCollect$calibration_input), plotMediaShareLoop[, round(unique(mape), 4)], NA)
-
-      suppressWarnings(plotMediaShareLoop <- melt.data.table(plotMediaShareLoop, id.vars = c("rn", "nrmse", "decomp.rssd", "rsq_train"), measure.vars = c("spend_share", "effect_share", "roi_total", "cpa_total")))
+      
+      suppressWarnings(plotMediaShareLoop <- melt.data.table(plotMediaShareLoop, id.vars = c("rn", "nrmse", "decomp.rssd", "rsq_train"), measure.vars = c("visit_share", "effect_share", "roi_total", "cpa_total")))
       plotMediaShareLoop[, rn := factor(rn, levels = sort(InputCollect$paid_media_vars))]
-      plotMediaShareLoopBar <- plotMediaShareLoop[variable %in% c("spend_share", "effect_share")]
+      plotMediaShareLoopBar <- plotMediaShareLoop[variable %in% c("visit_share", "effect_share")]
       # plotMediaShareLoopBar[, variable:= ifelse(variable=="spend_share", "total spend share", "total effect share")]
       plotMediaShareLoopLine <- plotMediaShareLoop[variable == ifelse(InputCollect$dep_var_type == "conversion", "cpa_total", "roi_total")]
       # plotMediaShareLoopLine[, variable:= "roi_total"]
       ySecScale <- max(plotMediaShareLoopLine$value) / max(plotMediaShareLoopBar$value) * 1.1
 
-      p1 <- ggplot(plotMediaShareLoopBar, aes(x = rn, y = value, fill = variable)) +
-        geom_bar(stat = "identity", width = 0.5, position = "dodge") +
-        geom_text(aes(label = paste0(round(value * 100, 2), "%")), color = "darkblue", position = position_dodge(width = 0.5), fontface = "bold") +
-        geom_line(data = plotMediaShareLoopLine, aes(x = rn, y = value / ySecScale, group = 1, color = variable), inherit.aes = FALSE) +
-        geom_point(data = plotMediaShareLoopLine, aes(x = rn, y = value / ySecScale, group = 1, color = variable), inherit.aes = FALSE, size = 4) +
-        geom_text(
-          data = plotMediaShareLoopLine, aes(label = round(value, 2), x = rn, y = value / ySecScale, group = 1, color = variable),
-          fontface = "bold", inherit.aes = FALSE, hjust = -1, size = 6
-        ) +
-        scale_y_continuous(sec.axis = sec_axis(~ . * ySecScale)) +
+      
+      p1 <- ggplot(plotMediaShareLoopBar, aes(x=rn, y=value, fill=variable)) +
+        geom_bar(stat = "identity", width = 0.5, position = "dodge", color = gtb_cols("light grey")) +
+        geom_text(aes(label=paste0(round(value*100,2),"%")), color = gtb_cols("black"),  position=position_dodge(width=0.5), fontface = "bold") +
+        #geom_line(data = plotMediaShareLoopLine, aes(x = rn, y=value/ySecScale, group = 1, color=variable), inherit.aes = FALSE) +
+        #geom_point(data = plotMediaShareLoopLine, aes(x = rn, y=value/ySecScale, group = 1, color=variable), inherit.aes = FALSE, size=4) +
+        #geom_text(data = plotMediaShareLoopLine, aes(label=round(value,2), x = rn, y=value/ySecScale, group = 1, color = variable), fontface = "bold", inherit.aes = FALSE, hjust = -1, size = 6) +
+        scale_y_continuous(sec.axis = sec_axis(~.* ySecScale)) +          
         coord_flip() +
-        theme(legend.title = element_blank(), legend.position = c(0.9, 0.2), axis.text.x = element_blank()) +
-        scale_fill_brewer(palette = "Paired") +
-        labs(
-          title = paste0("Share of Spend VS Share of Effect with total ", ifelse(InputCollect$dep_var_type == "conversion", "CPA", "ROI")),
-          subtitle = paste0(
-            "rsq_train: ", rsq_train_plot,
-            ", nrmse = ", nrmse_plot,
-            ", decomp.rssd = ", decomp_rssd_plot,
-            ", mape.lift = ", mape_lift_plot
-          ),
-          y = "", x = ""
-        )
+        theme( legend.title = element_blank(), legend.position = c(0.9, 0.2) ,axis.text.x = element_blank()) +
+        #scale_fill_brewer(palette = "Paired") +
+        scale_color_gtb() +
+        labs(title = paste0("Share of Visits VS Share of Effect with total ", ifelse(InputCollect$dep_var_type == "conversion", "CPA", "ROI"))
+             ,subtitle = paste0("rsq_train: ", rsq_train_plot, 
+                                ", nrmse = ", nrmse_plot, 
+                                ", decomp.rssd = ", decomp_rssd_plot,
+                                ", mape.lift = ", mape_lift_plot)
+             ,y="", x="")
+      
+      
 
       ## plot waterfall
       plotWaterfallLoop <- plotWaterfall[solID == uniqueSol[j]][order(xDecompPerc)]
@@ -480,6 +546,7 @@ robyn_run <- function(InputCollect,
           y = rowSums(cbind(end, xDecompPerc / 2))
         ), fontface = "bold") +
         coord_flip() +
+        scale_color_gtb() +
         labs(
           title = "Response decomposition waterfall by predictor",
           subtitle = paste0(
@@ -574,6 +641,7 @@ robyn_run <- function(InputCollect,
         geom_bar(stat = "identity", width = 0.5) +
         theme(legend.position = "none") +
         coord_flip() +
+        scale_color_gtb() +
         geom_text(aes(label = paste0(round(avg_decay_rate * 100, 1), "%")), position = position_dodge(width = 0.5), fontface = "bold") +
         ylim(0, 1) +
         labs(
@@ -662,22 +730,21 @@ robyn_run <- function(InputCollect,
         dt_scurvePlotMean[channel == get_med, next_unit_response := get_response_marginal * coef - mean_response]
       }
       dt_scurvePlotMean[, solID := uniqueSol[j]]
-
+      
       p4 <- ggplot(data = dt_scurvePlot[channel %in% InputCollect$paid_media_vars], aes(x = spend, y = response, color = channel)) +
         geom_line() +
-        geom_point(data = dt_scurvePlotMean, aes(x = mean_spend, y = mean_response, color = channel)) +
-        geom_text(data = dt_scurvePlotMean, aes(x = mean_spend, y = mean_response, label = round(mean_spend, 0)), show.legend = FALSE, hjust = -0.2) +
+        geom_point(data = dt_scurvePlotMean, aes(x=mean_spend, y=mean_response, color = channel)) +
+        geom_text(data = dt_scurvePlotMean, aes(x=mean_spend, y=mean_response,  label = round(mean_spend,0)), show.legend = F, hjust = -0.2)+
         theme(legend.position = c(0.9, 0.2)) +
-        labs(
-          title = "Response curve and mean spend by channel",
-          subtitle = paste0(
-            "rsq_train: ", rsq_train_plot,
-            ", nrmse = ", nrmse_plot,
-            ", decomp.rssd = ", decomp_rssd_plot,
-            ", mape.lift = ", mape_lift_plot
-          ),
-          x = "Spend", y = "response"
-        )
+        #facet_zoom(xlim = c(0, 20000), ylim = c(0,0.15)) + # temp: zoom in 
+        #facet_zoom(x = Species == "versicolor")
+        #scale_color_gtb() +
+        labs(title="Response curve and mean visits by channel"
+             ,subtitle = paste0("rsq_train: ", rsq_train_plot, 
+                                ", nrmse = ", nrmse_plot, 
+                                ", decomp.rssd = ", decomp_rssd_plot,
+                                ", mape.lift = ", mape_lift_plot)
+             ,x="Visits" ,y="response")
 
       ## plot fitted vs actual
 
@@ -710,19 +777,17 @@ robyn_run <- function(InputCollect,
       setnames(xDecompVecPlot, old = c("ds", "dep_var", "depVarHat"), new = c("ds", "actual", "predicted"))
       suppressWarnings(xDecompVecPlotMelted <- melt.data.table(xDecompVecPlot, id.vars = "ds"))
 
-      p5 <- ggplot(xDecompVecPlotMelted, aes(x = ds, y = value, color = variable)) +
+      p5 <- ggplot(xDecompVecPlotMelted, aes(x=ds, y = value, color = variable)) +
         geom_line() +
         theme(legend.position = c(0.9, 0.9)) +
-        labs(
-          title = "Actual vs. predicted response",
-          subtitle = paste0(
-            "rsq_train: ", rsq_train_plot,
-            ", nrmse = ", nrmse_plot,
-            ", decomp.rssd = ", decomp_rssd_plot,
-            ", mape.lift = ", mape_lift_plot
-          ),
-          x = "date", y = "response"
-        )
+        scale_fill_brewer(palette = "Paired") +
+        #scale_color_gtb_actual_pred() +
+        labs(title="Actual vs. predicted response"
+             ,subtitle = paste0("rsq_train: ", rsq_train_plot, 
+                                ", nrmse = ", nrmse_plot, 
+                                ", decomp.rssd = ", decomp_rssd_plot,
+                                ", mape.lift = ", mape_lift_plot)
+             ,x="date" ,y="response")
 
       ## plot diagnostic: fitted vs residual
 
@@ -730,7 +795,7 @@ robyn_run <- function(InputCollect,
         geom_hline(yintercept = 0) +
         geom_smooth(se = TRUE, method = "loess", formula = "y ~ x") +
         xlab("fitted") + ylab("resid") + ggtitle("fitted vs. residual")
-
+      
       ## save and aggregate one-pager plots
 
       onepagerTitle <- paste0("Model one-pager, on pareto front ", pf, ", ID: ", uniqueSol[j])
@@ -792,7 +857,19 @@ robyn_run <- function(InputCollect,
   fwrite(xDecompAgg[solID %in% allSolutions], paste0(plot_folder, "/", plot_folder_sub, "/", "pareto_aggregated.csv"))
   fwrite(mediaVecCollect, paste0(plot_folder, "/", plot_folder_sub, "/", "pareto_media_transform_matrix.csv"))
   fwrite(xDecompVecCollect, paste0(plot_folder, "/", plot_folder_sub, "/", "pareto_alldecomp_matrix.csv"))
-
+  
+  # normalise + write 
+  
+  library(caret)
+  
+  preproc1  <- preProcess(xDecompAgg[,c('nrmse','decomp.rssd')], method=c("center", "scale"))
+  pareto_normalise <- predict(preproc1, xDecompAgg[,c('nrmse','decomp.rssd')])
+  pareto_normalise$nrmse <- as.numeric(as.character(pareto_normalise$nrmse))
+  pareto_normalise$decomp.rssd <- as.numeric(as.character(pareto_normalise$decomp.rssd))
+  pareto_normalise$eval_metric_norm = pareto_normalise$nrmse + pareto_normalise$decomp.rssd
+  pareto_all = cbind(pareto_normalise,xDecompAgg)
+  fwrite(pareto_all, paste0(plot_folder, "/", plot_folder_sub,"/", "pareto_aggregated_normalised.csv"))
+  
   # For internal use -> UI Code
   if (ui) {
     UI <- list(pParFront = pParFront)
@@ -803,6 +880,7 @@ robyn_run <- function(InputCollect,
     xDecompAgg = xDecompAgg[solID %in% allSolutions],
     mediaVecCollect = mediaVecCollect,
     xDecompVecCollect = xDecompVecCollect,
+    pareto_all = pareto_all,
     UI = invisible(UI),
     model_output_collect = model_output_collect,
     allSolutions = allSolutions,
@@ -1163,7 +1241,7 @@ robyn_mmm <- function(hyper_collect,
 
           lambda_range <- c(cvmod$lambda.min, cvmod$lambda.1se)
           lambda <- lambda_range[1] + (lambda_range[2]-lambda_range[1]) * lambda_control
-
+          
           #####################################
           #### refit ridge regression with selected lambda from x-validation
 
@@ -1216,7 +1294,7 @@ robyn_mmm <- function(hyper_collect,
           }
 
           if (is.nan(decomp.rssd)) {
-            # message("all media in this iteration have 0 coefficients")
+            message("all media in this iteration have 0 coefficients")
             decomp.rssd <- Inf
             dt_decompSpendDist[, effect_share := 0]
           }
