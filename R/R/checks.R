@@ -8,13 +8,13 @@
 opts_pnd <- c("positive", "negative", "default")
 
 check_nas <- function(df) {
-  # if (sum(is.na(df)) > 0) {
-  #   name <- deparse(substitute(df))
-  #   stop(paste(
-  #     "Dataset", name, "has missing values.",
-  #     "These values must be removed or fixed for the model to properly run"
-  #   ))
-  # }
+  if (sum(is.na(df)) > 0) {
+    name <- deparse(substitute(df))
+    stop(paste(
+      "Dataset", name, "has missing values.",
+      "These values must be removed or fixed for the model to properly run"
+    ))
+  }
 }
 
 check_varnames <- function(dt_input, dt_holidays,
