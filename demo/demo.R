@@ -13,7 +13,7 @@
 
 ## Install and load libraries
 # install.packages('remotes')
-devtools::install_github("el-wrk/Robyn/R", force= TRUE)
+devtools::install_github("el-wrk/Robyn-forked/R", force= TRUE)
 
 library(Robyn)
 library(reticulate)
@@ -48,29 +48,34 @@ use_condaenv("r-reticulate")
 
 ################################################################
 #### Step 1: load data
-set_country <- "DE" # Including national holidays for 59 countries, whose list can be found on our github guide 
+set_country <- "ES" # Including national holidays for 59 countries, whose list can be found on our github guide 
 # script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
-#myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
+# myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
 add <- "" # _ + sales leads orders reprise 
+window_start <- "2020-07-31"
+window_end <- "2021-01-31"
 
-## Check simulated dataset or load your own dataset
-# data("dt_simulated_weekly")
+excl_window_start <- "2020-12-01"
+excl_window_end <- "2020-12-31"
+
+no_iterations <- 2000 # 2000 is recommended (500, 2000), minimum of 1000
+no_trials <- 5 # 5 is recommended without calibration, 10 with
+
+## load dataset
 dt_simulated_weekly <- fread(paste0('~/GitHub/Robyn-results-private/data/input data/input_', set_country, add, '.csv')) # input time series should be daily, weekly or monthly
 dt_simulated_weekly[is.na(dt_simulated_weekly)] <- 0
 head(dt_simulated_weekly)
 print(min(dt_simulated_weekly$DATE))
 print(max(dt_simulated_weekly$DATE))
 
-## Check holidays from Prophet
-# 59 countries included. If your country is not included, please manually add it.
+## Load holidays
 # Tip: any events can be added into this table, school break, events etc.
-# data("dt_prophet_holidays")
-dt_prophet_holidays <- fread(paste0('~/GitHub/Robyn-results-private/data/holidays data/holidays-', set_country, '.csv')) # input time series should be daily, weekly or monthly
-head(dt_prophet_holidays)
+dt_holidays <- fread(paste0('~/GitHub/Robyn-results-private/data/holidays data/holidays-', set_country, '.csv')) # input time series should be daily, weekly or monthly
+print(min(dt_holidays$ds))
+print(max(dt_holidays$ds))
 
 ## Set robyn_object. It must have extension .RDS. The object name can be different than Robyn:
 robyn_object <- paste0("~/GitHub/Robyn-results-private/models/Robyn_", set_country, add, ".RDS")
-
 ################################################################
 #### Step 2a: For first time user: Model specification in 4 steps
 
@@ -79,37 +84,22 @@ robyn_object <- paste0("~/GitHub/Robyn-results-private/models/Robyn_", set_count
 # Run ?robyn_inputs to check parameter definition
 InputCollect <- robyn_inputs(
   dt_input = dt_simulated_weekly
-  ,dt_holidays = dt_prophet_holidays
+  ,dt_holidays = dt_holidays
 
   ### set variables
-
   ,date_var = "DATE" # date format must be "2020-01-01"
   ,dep_var = "sales" # there should be only one dependent variable
   ,dep_var_type = "revenue" # "revenue" or "conversion"
-
-  ,prophet_vars = c("trend", "season", "holiday", "weekday") # "trend","season", "weekday", "holiday"
-  # are provided and case-sensitive. Recommended to at least keep Trend & Holidays
+  ,prophet_vars = c("trend", "season", "holiday", "weekday") # "trend","season", "weekday", "holiday" # are provided and case-sensitive. Recommended to at least keep Trend & Holidays
   ,prophet_signs = c("default", "default", "default", "default") # c("default", "positive", and "negative").
-  # Recommend as default. Must be same length as prophet_vars
-  ,prophet_country = set_country # only one country allowed once. Including national holidays
-  # for 59 countries, whose list can be found on our github guide
-
-  ,context_vars = c("qr_v", "ford_domain_v") # typically competitors, price &
-  # promotion, temperature, unemployment rate etc
+  ,prophet_country = set_country
+  ,context_vars = c("qr_v", "ford_domain_v") # typically competitors, price & promotion, temperature, unemployment rate etc
   ,context_signs = c("default", "default") # c("default", " positive", and "negative"),
-  # control the signs of coefficients for baseline variables
-
-  ,paid_media_vars = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v")
-  # we recommend to use media exposure metrics like impressions, GRP etc for the model.
-  # If not applicable, use spend instead
-  ,paid_media_signs = c("positive", "positive", "positive", "positive", "positive", "positive")
-  # c("default", "positive", and "negative"). must have same length as paid_media_vars.
-  # Controls the signs of coefficients for media variables
-  ,paid_media_spends = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v")
-  # spends must have same order and same length as paid_media_vars
-
+  ,paid_media_vars = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v") # we recommend to use media exposure metrics like impressions, GRP etc for the model. If not applicable, use spend instead
+  ,paid_media_signs = c("positive", "positive", "positive", "positive", "positive", "positive") # c("default", "positive", and "negative")
+  ,paid_media_spends = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v") # Controls the signs of coefficients for media variables
   ,organic_vars = c("n_search_v", "internal_v")
-  ,organic_signs = c("positive", "positive") # must have same length as organic_vars
+  ,organic_signs = c("positive", "positive")
 
   # ,factor_vars = c("") # specify which variables in context_vars and
   # organic_vars are factorial
@@ -120,22 +110,14 @@ InputCollect <- robyn_inputs(
   ,cores = 6 # I am using 6 cores from 8 on my local machine. Use future::availableCores() to find out cores
   
   ## set rolling window start
-  ,window_start = "2020-07-31"
-  ,window_end = "2021-01-31"
+  ,window_start = window_start
+  ,window_end = window_end
 
   ## set model core features
-  ,adstock = "weibull" # geometric or weibull. weibull is more flexible, yet has one more
-  # parameter and thus takes longer
-  ,iterations = 2000  # number of allowed iterations per trial. 2000 is recommended (500, 2000), minimum of 1000
-
-  # set_hyperOptimAlgo <- "NaiveTBPSA" 
-  ,nevergrad_algo = "TwoPointsDE" # recommended algorithm for Nevergrad, the gradient-free
-  # optimisation library https://facebookresearch.github.io/nevergrad/index.html
-  ,trials = 5 # number of allowed iterations per trial. 5 is recommended without calibration, (3, 5), miminum of 3
-  # 10 with calibration.
-
-  # Time estimation: with geometric adstock, 2000 iterations * 5 trials
-  # and 6 cores, it takes less than 1 hour. Weibull takes at least twice as much time.
+  ,adstock = "weibull_cdf" 
+  ,iterations = no_iterations
+  ,nevergrad_algo = "TwoPointsDE" #TwoPointsDE", "NaiveTBPSA" recommended algorithm for Nevergrad, the gradient-free optimisation library https://facebookresearch.github.io/nevergrad/index.html
+  ,trials = no_trials 
 )
 
 
@@ -328,7 +310,7 @@ OutputCollect <- robyn_run(
 ## your business reality
 
 OutputCollect$allSolutions # get all model IDs in result
-select_model <- "2_288_4" # select one from above
+select_model <- "3_301_1" # select one from above
 robyn_save(robyn_object = robyn_object # model object location and name
            , select_model = select_model # selected model ID
            , InputCollect = InputCollect # all model input
