@@ -1260,7 +1260,7 @@ robyn_mmm <- function(hyper_collect,
           nrmse <- mod_out$nrmse_train
           mape <- 0
           df.int <- mod_out$df.int
-          print('decomp collect', decompCollect)
+          # print('decomp collect', decompCollect)
 
           #####################################
           #### get calibration mape
