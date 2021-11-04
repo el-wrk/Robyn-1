@@ -51,12 +51,10 @@ use_condaenv("r-reticulate")
 set_country <- "FR" # Including national holidays for 59 countries, whose list can be found on our github guide 
 # script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
 # myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
-add <- "_REPRISE" # _ + sales leads orders reprise 
+add <- "_COMBINED" # _ + sales leads orders reprise 
+
 window_start <- "2020-01-31"
 window_end <- "2021-01-31"
-
-excl_window_start <- "2020-12-01"
-excl_window_end <- "2020-12-31"
 
 no_iterations <- 2000 # 2000 is recommended (500, 2000), minimum of 1000
 no_trials <- 5 # 5 is recommended without calibration, 10 with
@@ -67,6 +65,15 @@ dt_simulated_weekly[is.na(dt_simulated_weekly)] <- 0
 head(dt_simulated_weekly)
 print(min(dt_simulated_weekly$DATE))
 print(max(dt_simulated_weekly$DATE))
+
+# to change types from integer to numeric/double
+columns = c("display_v", "internal_v", "referrer_v", "n_search_v", "direct_v", "qr_v", "email_v", "p_search_v", "social_v", "ford_domain_v", "sales")
+for(c in columns) {
+  dt_simulated_weekly[[c]] <- as.double(dt_simulated_weekly[[c]]) 
+}
+print(str(dt_simulated_weekly))
+print(sapply(dt_simulated_weekly, class))
+print(sapply(dt_simulated_weekly, typeof))
 
 ## Load holidays
 # Tip: any events can be added into this table, school break, events etc.
@@ -310,7 +317,7 @@ OutputCollect <- robyn_run(
 ## your business reality
 
 OutputCollect$allSolutions # get all model IDs in result
-select_model <- "3_301_1" # select one from above
+select_model <- "2_315_1" # select one from above
 robyn_save(robyn_object = robyn_object # model object location and name
            , select_model = select_model # selected model ID
            , InputCollect = InputCollect # all model input
