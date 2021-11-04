@@ -1006,7 +1006,7 @@ robyn_mmm <- function(hyper_collect,
     total_spend = sapply(.SD, sum),
     mean_spend = sapply(.SD, function(x) ifelse(is.na(mean(x[x > 0])), 0, mean(x[x > 0])))
   ), .SDcols = paid_media_spends]
-  dt_spendShare[, ":="(spend_share = total_spend / sum(total_spend))]
+  dt_spendShare[, ":="(visit_share = total_spend / sum(total_spend))]
 
   refreshAddedStartWhich <- which(dt_modRollWind$ds == refreshAddedStart)
   dt_spendShareRF <- dt_inputTrain[refreshAddedStartWhich:rollingWindowLength,
@@ -1017,10 +1017,10 @@ robyn_mmm <- function(hyper_collect,
     ),
     .SDcols = paid_media_spends
   ]
-  dt_spendShareRF[, ":="(spend_share = total_spend / sum(total_spend))]
+  dt_spendShareRF[, ":="(visit_share = total_spend / sum(total_spend))]
   dt_spendShare[, ":="(total_spend_refresh = dt_spendShareRF$total_spend,
     mean_spend_refresh = dt_spendShareRF$mean_spend,
-    spend_share_refresh = dt_spendShareRF$spend_share)]
+    spend_share_refresh = dt_spendShareRF$visit_share)]
 
 
   ################################################
@@ -1275,7 +1275,7 @@ robyn_mmm <- function(hyper_collect,
 
           ## decomp objective: sum of squared distance between decomp share and spend share to be minimised
           dt_decompSpendDist <- decompCollect$xDecompAgg[rn %in% paid_media_vars, .(rn, xDecompPerc, xDecompMeanNon0Perc, xDecompMeanNon0, xDecompPercRF, xDecompMeanNon0PercRF, xDecompMeanNon0RF)]
-          dt_decompSpendDist <- dt_decompSpendDist[dt_spendShare[, .(rn, spend_share, spend_share_refresh, mean_spend, total_spend)], on = "rn"]
+          dt_decompSpendDist <- dt_decompSpendDist[dt_spendShare[, .(rn, visit_share, spend_share_refresh, mean_spend, total_spend)], on = "rn"]
           dt_decompSpendDist[, ":="(effect_share = xDecompPerc / sum(xDecompPerc),
             effect_share_refresh = xDecompPercRF / sum(xDecompPercRF))]
           decompCollect$xDecompAgg[dt_decompSpendDist[, .(rn, spend_share_refresh, effect_share_refresh)],
@@ -1285,7 +1285,7 @@ robyn_mmm <- function(hyper_collect,
           ]
 
           if (!refresh) {
-            decomp.rssd <- dt_decompSpendDist[, sqrt(sum((effect_share - spend_share)^2))]
+            decomp.rssd <- dt_decompSpendDist[, sqrt(sum((effect_share - visit_share)^2))]
           } else {
             dt_decompRF <- decompCollect$xDecompAgg[, .(rn, decomp_perc = xDecompPerc)][xDecompAggPrev[, .(rn, decomp_perc_prev = xDecompPerc)], on = "rn"]
             decomp.rssd.nonmedia <- dt_decompRF[!(rn %in% paid_media_vars), sqrt(mean((decomp_perc - decomp_perc_prev)^2))]

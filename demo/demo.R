@@ -48,11 +48,11 @@ use_condaenv("r-reticulate")
 
 ################################################################
 #### Step 1: load data
-set_country <- "ES" # Including national holidays for 59 countries, whose list can be found on our github guide 
+set_country <- "FR" # Including national holidays for 59 countries, whose list can be found on our github guide 
 # script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
 # myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
-add <- "" # _ + sales leads orders reprise 
-window_start <- "2020-07-31"
+add <- "_REPRISE" # _ + sales leads orders reprise 
+window_start <- "2020-01-31"
 window_end <- "2021-01-31"
 
 excl_window_start <- "2020-12-01"
@@ -93,13 +93,13 @@ InputCollect <- robyn_inputs(
   ,prophet_vars = c("trend", "season", "holiday", "weekday") # "trend","season", "weekday", "holiday" # are provided and case-sensitive. Recommended to at least keep Trend & Holidays
   ,prophet_signs = c("default", "default", "default", "default") # c("default", "positive", and "negative").
   ,prophet_country = set_country
-  ,context_vars = c("qr_v", "ford_domain_v") # typically competitors, price & promotion, temperature, unemployment rate etc
-  ,context_signs = c("default", "default") # c("default", " positive", and "negative"),
+  ,context_vars = c() # typically competitors, price & promotion, temperature, unemployment rate etc
+  ,context_signs = c() # c("default", " positive", and "negative"),
   ,paid_media_vars = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v") # we recommend to use media exposure metrics like impressions, GRP etc for the model. If not applicable, use spend instead
   ,paid_media_signs = c("positive", "positive", "positive", "positive", "positive", "positive") # c("default", "positive", and "negative")
   ,paid_media_spends = c("p_search_v", "direct_v"	,	"social_v"	,"display_v" , "email_v", "referrer_v") # Controls the signs of coefficients for media variables
-  ,organic_vars = c("n_search_v", "internal_v")
-  ,organic_signs = c("positive", "positive")
+  ,organic_vars = c("n_search_v", "internal_v", "ford_domain_v")
+  ,organic_signs = c("positive", "positive", "positive")
 
   # ,factor_vars = c("") # specify which variables in context_vars and
   # organic_vars are factorial
@@ -114,7 +114,7 @@ InputCollect <- robyn_inputs(
   ,window_end = window_end
 
   ## set model core features
-  ,adstock = "weibull_cdf" 
+  ,adstock = "weibull_pdf" 
   ,iterations = no_iterations
   ,nevergrad_algo = "TwoPointsDE" #TwoPointsDE", "NaiveTBPSA" recommended algorithm for Nevergrad, the gradient-free optimisation library https://facebookresearch.github.io/nevergrad/index.html
   ,trials = no_trials 
@@ -186,11 +186,11 @@ hyperparameters <- list(
   ,internal_v_shapes = c(0.0001, 2)
   ,internal_v_scales = c(0, 0.1)
   
-  # ,ford_domain_v_alphas = c(0.5, 3)
-  # ,ford_domain_v_gammas = c(0.3, 1)
-  # ,ford_domain_v_shapes = c(0.0001, 2)
-  # ,ford_domain_v_scales = c(0, 0.1)
-  
+  ,ford_domain_v_alphas = c(0.5, 3)
+  ,ford_domain_v_gammas = c(0.3, 1)
+  ,ford_domain_v_shapes = c(0.0001, 2)
+  ,ford_domain_v_scales = c(0, 0.1)
+
   ,referrer_v_alphas = c(0.5, 3)
   ,referrer_v_gammas = c(0.3, 1)
   ,referrer_v_shapes = c(0.0001, 2)
@@ -211,7 +211,7 @@ hyperparameters <- list(
   ,p_search_v_shapes = c(0.0001, 2)
   ,p_search_v_scales = c(0, 0.1)
   
-  #weibull - need TV spot data
+  # need TV spot data
   #,tv_v_alphas = c(0.5, 3)
   #,tv_v_gammas = c(0.3, 1)
   #,tv_v_shapes = c(0.0001, 2)
