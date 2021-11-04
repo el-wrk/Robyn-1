@@ -1285,8 +1285,10 @@ robyn_mmm <- function(hyper_collect,
           ]
 
           if (!refresh) {
-            print('visit share', dt_decompSpendDist$visit_share)
-            print('effect share', dt_decompSpendDist$effect_share)
+            print('visit share', dt_decompSpendDist[[visit_share]])
+            print('effect share', dt_decompSpendDist[[effect_share]])
+            print(visit_share)
+            print(effect_share)
             decomp.rssd <- dt_decompSpendDist[, sqrt(sum((effect_share - visit_share)^2))]
           } else {
             dt_decompRF <- decompCollect$xDecompAgg[, .(rn, decomp_perc = xDecompPerc)][xDecompAggPrev[, .(rn, decomp_perc_prev = xDecompPerc)], on = "rn"]
