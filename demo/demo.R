@@ -52,6 +52,7 @@ set_country <- "FR" # Including national holidays for 59 countries, whose list c
 # script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
 # myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
 add <- "_COMBINED" # _ + sales leads orders reprise 
+input_path <- '~/GitHub/Robyn-results-private/data/input data/input_'
 
 window_start <- "2020-01-31"
 window_end <- "2021-01-31"
@@ -60,20 +61,20 @@ no_iterations <- 2000 # 2000 is recommended (500, 2000), minimum of 1000
 no_trials <- 5 # 5 is recommended without calibration, 10 with
 
 ## load dataset
-dt_simulated_weekly <- fread(paste0('~/GitHub/Robyn-results-private/data/input data/input_', set_country, add, '.csv')) # input time series should be daily, weekly or monthly
+dt_simulated_weekly <- fread(paste0(input_path, set_country, add, '.csv')) # input time series should be daily, weekly or monthly
 dt_simulated_weekly[is.na(dt_simulated_weekly)] <- 0
 head(dt_simulated_weekly)
 print(min(dt_simulated_weekly$DATE))
 print(max(dt_simulated_weekly$DATE))
 
-# to change types from integer to numeric/double
-columns = c("display_v", "internal_v", "referrer_v", "n_search_v", "direct_v", "qr_v", "email_v", "p_search_v", "social_v", "ford_domain_v", "sales")
-for(c in columns) {
-  dt_simulated_weekly[[c]] <- as.double(dt_simulated_weekly[[c]]) 
-}
-print(str(dt_simulated_weekly))
-print(sapply(dt_simulated_weekly, class))
-print(sapply(dt_simulated_weekly, typeof))
+# # to change types from integer to numeric/double
+# columns = c("display_v", "internal_v", "referrer_v", "n_search_v", "direct_v", "qr_v", "email_v", "p_search_v", "social_v", "ford_domain_v", "sales")
+# for(c in columns) {
+#   dt_simulated_weekly[[c]] <- as.double(dt_simulated_weekly[[c]]) 
+# }
+# print(str(dt_simulated_weekly))
+# print(sapply(dt_simulated_weekly, class))
+# print(sapply(dt_simulated_weekly, typeof))
 
 ## Load holidays
 # Tip: any events can be added into this table, school break, events etc.
@@ -317,7 +318,7 @@ OutputCollect <- robyn_run(
 ## your business reality
 
 OutputCollect$allSolutions # get all model IDs in result
-select_model <- "2_315_1" # select one from above
+select_model <- "1_320_3" # select one from above
 robyn_save(robyn_object = robyn_object # model object location and name
            , select_model = select_model # selected model ID
            , InputCollect = InputCollect # all model input
@@ -461,8 +462,8 @@ Response2/Spend2 # ROI for search 81k
 #### Optional: get old model results
 
 # Get old hyperparameters and select model
-dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/runs/2021-10-22 11.44 init/pareto_hyperparameters.csv")
-select_model <- "5_265_4"
+dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/runs/2021-11-03 17.03 init fr reprise 2000 it/pareto_hyperparameters.csv")
+select_model <- "2_315_1"
 dt_hyper_fixed <- dt_hyper_fixed[solID == select_model]
 
 OutputCollectFixed <- robyn_run(
