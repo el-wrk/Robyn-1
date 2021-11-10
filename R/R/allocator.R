@@ -460,7 +460,9 @@ robyn_allocator <- function(robyn_object = NULL,
   names(histSpendUnit) <- mediaVarSortedFiltered
   #histSpendShare <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, spend_share]
   histSpendShare <- histSpendUnit/histSpendTotal
+  print(c('histSpendShare'), histSpendShare)
   names(histSpendShare) <- mediaVarSortedFiltered
+  print(c'mediaVarSortedFiltered', mediaVarSortedFiltered)
 
   # QA: check if objective function correctly implemented
   histResponseUnitModel <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, get("mean_response")]
@@ -567,6 +569,7 @@ robyn_allocator <- function(robyn_object = NULL,
   dt_optimOut[, optmResponseUnitTotalLift := (optmResponseUnitTotal / initResponseUnitTotal) - 1]
   # print(dt_optimOut)
 
+  print(c('optmSpendShareUnit', nlsMod$solution / sum(nlsMod$solution)))
   ## plot allocator results
 
   plotDT_total <- copy(dt_optimOut) # plotDT_total <- optim_result$dt_optimOut
@@ -614,12 +617,15 @@ robyn_allocator <- function(robyn_object = NULL,
          )
          ,y="", x="Channels")
   
+  
+  
   # budget share comparison plot
+  
   plotDT_share <- plotDT_total[, c("channels", "initSpendShare", "optmSpendShareUnit")][order(rank(channels))]
   plotDT_share[, channels := as.factor(channels)]
   chn_levels <- plotDT_share[, as.character(channels)]
   plotDT_share[, channels := factor(channels, levels = chn_levels)]
-  setnames(plotDT_share, names(plotDT_share), new = c("channel", "initial avg.spend share", "optimised avg.spend share"))
+  setnames(plotDT_share, names(plotDT_share), new = c("channel", "initial avg.visit share", "optimised avg.visit share"))
 
 
   plotDT_share <- suppressWarnings(melt.data.table(plotDT_share, id.vars = "channel", value.name = "spend_share"))
