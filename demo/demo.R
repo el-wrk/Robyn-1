@@ -465,8 +465,8 @@ Response2/Spend2 # ROI for search 81k
 #### Optional: get old model results
 
 # Get old hyperparameters and select model
-dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/runs/2021-11-03 17.03 init fr reprise 2000 it/pareto_hyperparameters.csv")
-select_model <- "2_315_1"
+dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/models/2021-11-05 13.28 init fr combined 2000 it/pareto_hyperparameters.csv")
+select_model <- "1_320_3"
 dt_hyper_fixed <- dt_hyper_fixed[solID == select_model]
 
 OutputCollectFixed <- robyn_run(
@@ -480,3 +480,42 @@ robyn_save(robyn_object = robyn_object
            , select_model = select_model
            , InputCollect = InputCollect
            , OutputCollect = OutputCollectFixed)
+
+# Check media summary for selected model
+OutputCollectFixed$xDecompAgg[solID == select_model & !is.na(mean_spend)
+                         , .(rn, coef,mean_spend, mean_response, roi_mean
+                             , total_spend, total_response=xDecompAgg, roi_total, solID)]
+
+# Run ?robyn_allocator to check parameter definition
+# Run the "max_historical_response" scenario: "What's the revenue lift potential with the
+# same historical spend level and what is the spend mix?"
+AllocatorCollect <- robyn_allocator(
+  InputCollect = InputCollect
+  , OutputCollect = OutputCollectFixed
+  , select_model = select_model
+  , scenario = "max_historical_response"
+  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5, 1.5)
+)
+
+# View allocator result. Last column "optmResponseUnitTotalLift" is the total response lift.
+AllocatorCollect$dt_optimOut
+
+# Run the "max_response_expected_spend" scenario: "What's the maximum response for a given
+# total spend based on historical saturation and what is the spend mix?" "optmSpendShareUnit"
+# is the optimum spend share.
+AllocatorCollect <- robyn_allocator(
+  InputCollect = InputCollect
+  , OutputCollect = OutputCollectFixed
+  , select_model = select_model
+  , scenario = "max_response_expected_spend"
+  , channel_constr_low = c(0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
+  , channel_constr_up = c(1.2, 1.5, 1.5, 1.5, 1.5, 1.5)
+  , expected_spend = 1000000 # Total spend to be simulated
+  , expected_spend_days = 7 # Duration of expected_spend in days
+)
+
+# View allocator result. Column "optmResponseUnitTotal" is the maximum unit (weekly with
+# simulated dataset) response. "optmSpendShareUnit" is the optimum spend share.
+AllocatorCollect$dt_optimOut
+

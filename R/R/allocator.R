@@ -567,7 +567,7 @@ robyn_allocator <- function(robyn_object = NULL,
   )
 
   dt_optimOut[, optmResponseUnitTotalLift := (optmResponseUnitTotal / initResponseUnitTotal) - 1]
-  # print(dt_optimOut)
+  print(c('dt_optimOut', dt_optimOut))
 
   print(c('optmSpendShareUnit', nlsMod$solution / sum(nlsMod$solution)))
   ## plot allocator results
