@@ -449,10 +449,14 @@ robyn_allocator <- function(robyn_object = NULL,
   names(histSpend) <- sort(InputCollect$paid_media_vars)
   # histSpend <- colSums(dt_optimCost)
   histSpendTotal <- sum(histSpend)
+  print('histSpendTotal', histSpendTotal)
+  
   histSpendUnitTotal <- sum(xDecompAggMedia$mean_spend) # histSpendTotal/ nPeriod
   # histSpendShare <- histSpend / histSpendTotal
   # histSpendUnit <- histSpendUnitTotal * histSpendShare
   histSpendUnit <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, mean_spend]
+  print('histSpendUnit', histSpendUnit)
+  
   names(histSpendUnit) <- mediaVarSortedFiltered
   #histSpendShare <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, spend_share]
   histSpendShare <- histSpendUnit/histSpendTotal

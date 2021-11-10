@@ -47,12 +47,14 @@ use_condaenv("r-reticulate")
 
 
 ################################################################
-#### Step 1: load data
+# Step 1: set variables to read in data
 set_country <- "FR" # Including national holidays for 59 countries, whose list can be found on our github guide 
 # script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
 # myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
 add <- "_COMBINED" # _ + sales leads orders reprise 
 input_path <- '~/GitHub/Robyn-results-private/data/input data/input_'
+holidays_path <- '~/GitHub/Robyn-results-private/data/holidays data/holidays-'
+models_path <- '~/GitHub/Robyn-results-private/models/Robyn_'
 
 window_start <- "2020-01-31"
 window_end <- "2021-01-31"
@@ -60,7 +62,8 @@ window_end <- "2021-01-31"
 no_iterations <- 2000 # 2000 is recommended (500, 2000), minimum of 1000
 no_trials <- 5 # 5 is recommended without calibration, 10 with
 
-## load dataset
+################################################################
+## load main dataset
 dt_simulated_weekly <- fread(paste0(input_path, set_country, add, '.csv')) # input time series should be daily, weekly or monthly
 dt_simulated_weekly[is.na(dt_simulated_weekly)] <- 0
 head(dt_simulated_weekly)
@@ -76,14 +79,14 @@ print(max(dt_simulated_weekly$DATE))
 # print(sapply(dt_simulated_weekly, class))
 # print(sapply(dt_simulated_weekly, typeof))
 
-## Load holidays
+## load holidays dataset
 # Tip: any events can be added into this table, school break, events etc.
-dt_holidays <- fread(paste0('~/GitHub/Robyn-results-private/data/holidays data/holidays-', set_country, '.csv')) # input time series should be daily, weekly or monthly
+dt_holidays <- fread(paste0(holidays_path, set_country, '.csv')) # input time series should be daily, weekly or monthly
 print(min(dt_holidays$ds))
 print(max(dt_holidays$ds))
 
 ## Set robyn_object. It must have extension .RDS. The object name can be different than Robyn:
-robyn_object <- paste0("~/GitHub/Robyn-results-private/models/Robyn_", set_country, add, ".RDS")
+robyn_object <- paste0(models_path, set_country, add, ".RDS")
 ################################################################
 #### Step 2a: For first time user: Model specification in 4 steps
 
