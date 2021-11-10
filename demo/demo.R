@@ -51,7 +51,7 @@ use_condaenv("r-reticulate")
 set_country <- "FR" # Including national holidays for 59 countries, whose list can be found on our github guide 
 # script_path <- str_sub(rstudioapi::getActiveDocumentContext()$path, start = 1, end = max(unlist(str_locate_all(rstudioapi::getActiveDocumentContext()$path, "/"))))
 # myconn <- DBI::dbConnect(odbc::odbc(), dsn="Snowflake", warehouse='GTB_WH', uid="ELEANOR_BILL", pwd="")
-add <- "_COMBINED" # _ + sales leads orders reprise 
+add <- "_REPRISE" # _ + sales leads orders reprise 
 input_path <- '~/GitHub/Robyn-results-private/data/input data/input_'
 holidays_path <- '~/GitHub/Robyn-results-private/data/holidays data/holidays-'
 models_path <- '~/GitHub/Robyn-results-private/models/Robyn_'
@@ -465,8 +465,8 @@ Response2/Spend2 # ROI for search 81k
 #### Optional: get old model results
 
 # Get old hyperparameters and select model
-dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/models/2021-11-05 13.28 init fr combined 2000 it/pareto_hyperparameters.csv")
-select_model <- "1_320_3"
+dt_hyper_fixed <- data.table::fread("C:/Users/eleanor.bill/Documents/GitHub/Robyn-results-private/models/2021-11-03 17.03 init fr reprise 2000 it/pareto_hyperparameters.csv")
+select_model <- "2_315_1"
 dt_hyper_fixed <- dt_hyper_fixed[solID == select_model]
 
 OutputCollectFixed <- robyn_run(
