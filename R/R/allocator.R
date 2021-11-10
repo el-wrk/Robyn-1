@@ -449,6 +449,7 @@ robyn_allocator <- function(robyn_object = NULL,
   names(histSpend) <- sort(InputCollect$paid_media_vars)
   # histSpend <- colSums(dt_optimCost)
   histSpendTotal <- sum(histSpend)
+  print('test')
   print(c('histSpendTotal', histSpendTotal))
   
   histSpendUnitTotal <- sum(xDecompAggMedia$mean_spend) # histSpendTotal/ nPeriod
