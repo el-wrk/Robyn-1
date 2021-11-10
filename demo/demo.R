@@ -518,4 +518,5 @@ AllocatorCollect <- robyn_allocator(
 # View allocator result. Column "optmResponseUnitTotal" is the maximum unit (weekly with
 # simulated dataset) response. "optmSpendShareUnit" is the optimum spend share.
 AllocatorCollect$dt_optimOut
+InputCollect
 

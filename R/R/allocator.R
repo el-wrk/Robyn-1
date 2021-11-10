@@ -380,8 +380,8 @@ robyn_allocator <- function(robyn_object = NULL,
             xAdstocked <- xScaled #* adstockMultiplier
             
             xOut <- -coeff * sum((alpha * (gammaTran**alpha) * (xAdstocked**(alpha - 1))) /
-                                   (xAdstocked**alpha + gammaTran**alpha)**2)
-            
+              (xAdstocked**alpha + gammaTran**alpha)**2)
+
             return(xOut)
           },
           x = X # , costMultiplier = costMultiplierVec, adstockMultiplier=adstockMultiplierVec
@@ -455,8 +455,7 @@ robyn_allocator <- function(robyn_object = NULL,
   histSpendUnit <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, mean_spend]
   names(histSpendUnit) <- mediaVarSortedFiltered
   #histSpendShare <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, spend_share]
-  histSpendShare <- histSpendUnit/sum(histSpendUnit)
-  # histSpendShare <- xDecompAggMedia[rn %in% mediaVarSortedFiltered, visit_share]
+  histSpendShare <- histSpendUnit/histSpendUnitTotal
   names(histSpendShare) <- mediaVarSortedFiltered
   
   # QA: check if objective function correctly implemented
@@ -589,6 +588,9 @@ robyn_allocator <- function(robyn_object = NULL,
                             ,"\nTotal sales increase ", plotDT_total[, round(mean(optmResponseUnitTotalLift)*100,1)], "% with optimised visit allocation")
          ,y="", x="Channels")
   
+  
+  
+  
   # Response comparison plot
   plotDT_resp <- plotDT_total[, c("channels", "initResponseUnit", "optmResponseUnit")][order(rank(channels))]
   plotDT_resp[, channels := as.factor(channels)]
@@ -596,13 +598,11 @@ robyn_allocator <- function(robyn_object = NULL,
   plotDT_resp[, channels := factor(channels, levels = chn_levels)]
   setnames(plotDT_resp, names(plotDT_resp), new = c("channel", "initial response / time unit", "optimised response / time unit"))
   
-  
   plotDT_resp <- suppressWarnings(melt.data.table(plotDT_resp, id.vars = "channel", value.name = "response"))
   p12 <- ggplot(plotDT_resp, aes(x=channel, y=response, fill = variable)) +
     geom_bar(stat = "identity", width = 0.5, position = "dodge") +
     coord_flip() +
     scale_color_gtb() +
-    #scale_fill_brewer(palette = "Paired") +
     geom_text(aes(label=round(response,0), hjust=1, size=2.0), position=position_dodge(width=0.5), fontface = "bold", show.legend = FALSE) +
     theme( legend.title = element_blank(), legend.position = c(0.8, 0.2) ,axis.text.x = element_blank(), legend.background=element_rect(colour=gtb_cols("dark grey"), fill='transparent')) +
     labs(title = "Initial vs. optimised mean response"
@@ -610,6 +610,9 @@ robyn_allocator <- function(robyn_object = NULL,
                             ,"\nTotal sales increase ", plotDT_total[, round(mean(optmResponseUnitTotalLift)*100,1)], "% with optimised visit allocation"
          )
          ,y="", x="Channels")
+  
+  
+  
   
   # budget share comparison plot
   plotDT_share <- plotDT_total[, c("channels", "initSpendShare", "optmSpendShareUnit")][order(rank(channels))]
@@ -624,7 +627,6 @@ robyn_allocator <- function(robyn_object = NULL,
     geom_bar(stat = "identity", width = 0.5, position = "dodge") +
     coord_flip() +
     scale_color_gtb() +
-    #scale_fill_brewer(palette = "Paired") +
     geom_text(aes(label=paste0(round(spend_share*100,2),"%"), hjust=1, size=2.0), position=position_dodge(width=0.5), fontface = "bold", show.legend = FALSE) +
     theme( legend.title = element_blank(), legend.position = c(0.8, 0.2) ,axis.text.x = element_blank(), legend.background=element_rect(colour= gtb_cols("dark grey"), fill='transparent')) +
     labs(title = "Initial vs. optimised visit allocation"
@@ -635,6 +637,7 @@ robyn_allocator <- function(robyn_object = NULL,
   
   
   ## response curve
+  print(c('InputCollect', InputCollect))
   
   plotDT_saturation <- melt.data.table(OutputCollect$mediaVecCollect[
     solID == select_model & type == "saturatedSpendReversed"
