@@ -725,18 +725,11 @@ robyn_allocator <- function(robyn_object = NULL,
   #        ,x="Visits" ,y="response")
   # 
   
-  g13 <- ggplotGrob(p13)
-  g12 <- ggplotGrob(p12)
-  g14 <- ggplotGrob(p14)
-  maxWidth <- unit.pmax(g13$widths, g12$widths, g14$widths)
-  g13$widths <- g12$widths <- g14$widths <- maxWidth
-  layout <- cbind(c(1,2), c(3,3))
-  g <- grid.arrange(g13, g12, g14,   layout_matrix=layout, top = text_grob(grobTitle, size = 15, face = "bold"))
-
-  # grobTitle <- paste0("Budget allocator optimum result for model ID ", select_model)
-  # g <- (p13 + p12) / p14 + plot_annotation(
-  #   title = grobTitle, theme = theme(plot.title = element_text(hjust = 0.5))
-  # )
+  
+  grobTitle <- paste0("Budget allocator optimum result for model ID ", select_model)
+  g <- (p13 + p12) / p14 + plot_annotation(
+    title = grobTitle, theme = theme(plot.title = element_text(hjust = 0.5))
+  )
   
   message("Exporting charts into file: ", paste0(OutputCollect$plot_folder, select_model, "_reallocated.png"))
   ggsave(
