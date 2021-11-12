@@ -636,13 +636,37 @@ robyn_allocator <- function(robyn_object = NULL,
   
   ## response curve
   
-  plotDT_saturation <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "saturatedSpendReversed"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "spend", variable.name = "channel")
-  plotDT_decomp <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "decompMedia"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "response", variable.name = "channel")
+  plotDT_saturation <- melt.data.table(OutputCollect$mediaVecCollect[
+    solID == select_model & type == "saturatedSpendReversed"
+  ],
+  id.vars = "ds",
+  measure.vars = InputCollect$paid_media_vars, value.name = "spend", variable.name = "channel"
+  )
+  plotDT_decomp <- melt.data.table(OutputCollect$mediaVecCollect[
+    solID == select_model & type == "decompMedia"
+  ],
+  id.vars = "ds",
+  measure.vars = InputCollect$paid_media_vars, value.name = "response", variable.name = "channel"
+  )
   plotDT_scurve <- cbind(plotDT_saturation, plotDT_decomp[, .(response)])
-  plotDT_scurve <- plotDT_scurve[spend>=0] # remove outlier introduced by MM nls fitting
-  plotDT_scurveMeanResponse <- model_output_collect$xDecompAgg[solID==modID & rn %in% set_mediaVarName]
-  dt_optimOutScurve <- rbind(dt_optimOut[, .(channels, initSpendUnit, initResponseUnit)][, type:="initial"], dt_optimOut[, .(channels, optmSpendUnit, optmResponseUnit)][, type:="optimised"], use.names = F)
+  plotDT_scurve <- plotDT_scurve[spend >= 0] # remove outlier introduced by MM nls fitting
+  plotDT_scurveMeanResponse <- OutputCollect$xDecompAgg[solID == select_model & rn %in% InputCollect$paid_media_vars]
+  dt_optimOutScurve <- rbind(dt_optimOut[
+    , .(channels, initSpendUnit, initResponseUnit)
+  ][, type := "initial"],
+  dt_optimOut[, .(channels, optmSpendUnit, optmResponseUnit)][, type := "optimised"],
+  use.names = FALSE
+  )
   setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
+  
+  # 
+  # plotDT_saturation <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "saturatedSpendReversed"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "spend", variable.name = "channel")
+  # plotDT_decomp <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "decompMedia"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "response", variable.name = "channel")
+  # plotDT_scurve <- cbind(plotDT_saturation, plotDT_decomp[, .(response)])
+  # plotDT_scurve <- plotDT_scurve[spend>=0] # remove outlier introduced by MM nls fitting
+  # plotDT_scurveMeanResponse <- model_output_collect$xDecompAgg[solID==modID & rn %in% set_mediaVarName]
+  # dt_optimOutScurve <- rbind(dt_optimOut[, .(channels, initSpendUnit, initResponseUnit)][, type:="initial"], dt_optimOut[, .(channels, optmSpendUnit, optmResponseUnit)][, type:="optimised"], use.names = F)
+  # setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
   
   p14 <- ggplot(data= plotDT_scurve, aes(x=spend, y=response, color = channel)) +
     geom_line() +
