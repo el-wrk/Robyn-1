@@ -637,18 +637,12 @@ robyn_allocator <- function(robyn_object = NULL,
   
   ## response curve
   
-  plotDT_saturation <- melt.data.table(OutputCollect$mediaVecCollect[
-    solID == select_model & type == "saturatedSpendReversed"
-  ],
-  id.vars = "ds",
-  measure.vars = InputCollect$paid_media_vars, value.name = "spend", variable.name = "channel"
-  )
-  plotDT_decomp <- melt.data.table(OutputCollect$mediaVecCollect[
-    solID == select_model & type == "decompMedia"
-  ],
-  id.vars = "ds",
-  measure.vars = InputCollect$paid_media_vars, value.name = "response", variable.name = "channel"
-  )
+  plotDT_saturation <- melt.data.table(OutputCollect$mediaVecCollect[solID == select_model & type == "saturatedSpendReversed"], id.vars = "ds",
+  measure.vars = InputCollect$paid_media_vars, value.name = "spend", variable.name = "channel")
+  
+  plotDT_decomp <- melt.data.table(OutputCollect$mediaVecCollect[solID == select_model & type == "decompMedia"], id.vars = "ds",
+  measure.vars = InputCollect$paid_media_vars, value.name = "response", variable.name = "channel")
+  
   plotDT_scurve <- cbind(plotDT_saturation, plotDT_decomp[, .(response)])
   plotDT_scurve <- plotDT_scurve[spend >= 0] # remove outlier introduced by MM nls fitting
   plotDT_scurveMeanResponse <- OutputCollect$xDecompAgg[solID == select_model & rn %in% InputCollect$paid_media_vars]
@@ -662,16 +656,9 @@ robyn_allocator <- function(robyn_object = NULL,
   print(c('dt_optimOutScurve',dt_optimOutScurve))
   print(c('plotDT_scurve',plotDT_scurve))
   
-  # 
-  # plotDT_saturation <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "saturatedSpendReversed"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "spend", variable.name = "channel")
-  # plotDT_decomp <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "decompMedia"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "response", variable.name = "channel")
-  # plotDT_scurve <- cbind(plotDT_saturation, plotDT_decomp[, .(response)])
-  # plotDT_scurve <- plotDT_scurve[spend>=0] # remove outlier introduced by MM nls fitting
-  # plotDT_scurveMeanResponse <- model_output_collect$xDecompAgg[solID==modID & rn %in% set_mediaVarName]
-  # dt_optimOutScurve <- rbind(dt_optimOut[, .(channels, initSpendUnit, initResponseUnit)][, type:="initial"], dt_optimOut[, .(channels, optmSpendUnit, optmResponseUnit)][, type:="optimised"], use.names = F)
-  # setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
   
-  p14 <- ggplot(data= plotDT_scurve[channel %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channel)) +
+  p14 <- ggplot(
+    data= dt_optimOutScurve[channel %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channel)) +
     geom_line() +
     geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
     geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
@@ -687,48 +674,9 @@ robyn_allocator <- function(robyn_object = NULL,
                             ", mape.lift = ", plotDT_scurveMeanResponse[, round(mean(mape),4)])
          ,x="Visits" ,y="response")
   
-  # plotDT_saturation <- melt.data.table(OutputCollect$mediaVecCollect[
-  #   solID == select_model & type == "saturatedSpendReversed"
-  # ],
-  # id.vars = "ds",
-  # measure.vars = InputCollect$paid_media_vars, value.name = "spend", variable.name = "channel"
-  # )
-  # plotDT_decomp <- melt.data.table(OutputCollect$mediaVecCollect[
-  #   solID == select_model & type == "decompMedia"
-  # ],
-  # id.vars = "ds",
-  # measure.vars = InputCollect$paid_media_vars, value.name = "response", variable.name = "channel"
-  # )
-  # plotDT_scurve <- cbind(plotDT_saturation, plotDT_decomp[, .(response)])
-  # plotDT_scurve <- plotDT_scurve[spend >= 0] # remove outlier introduced by MM nls fitting
-  # plotDT_scurveMeanResponse <- OutputCollect$xDecompAgg[solID == select_model & rn %in% InputCollect$paid_media_vars]
-  # dt_optimOutScurve <- rbind(dt_optimOut[
-  #   , .(channels, initSpendUnit, initResponseUnit)
-  # ][, type := "initial"],
-  # dt_optimOut[, .(channels, optmSpendUnit, optmResponseUnit)][, type := "optimised"],
-  # use.names = FALSE
-  # )
-  # setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
-  # 
-  # 
-  # p14 <- ggplot(data= plotDT_scurve, aes(x=spend, y=response, color = channel)) +
-  #   geom_line() +
-  #   geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
-  #   geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
-  #   facet_zoom(xlim = c(0, 50000), ylim = c(0,0.15)) +
-  #   scale_color_gtb() +
-  #   #geom_point(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, fill = "optimised"), shape=2) +
-  #   #geom_text(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, label = round(optmSpendUnit,0)),  show.legend = F, hjust = -0.2) +
-  #   theme(legend.position = c(0.9, 0.4), legend.title=element_blank()) +
-  #   labs(title="Response curve and mean visits by channel"
-  #        ,subtitle = paste0("rsq_train: ", plotDT_scurveMeanResponse[,round(mean(rsq_train),4)], 
-  #                           ", nrmse = ", plotDT_scurveMeanResponse[, round(mean(nrmse),4)], 
-  #                           ", decomp.rssd = ", plotDT_scurveMeanResponse[, round(mean(decomp.rssd),4)],
-  #                           ", mape.lift = ", plotDT_scurveMeanResponse[, round(mean(mape),4)])
-  #        ,x="Visits" ,y="response")
-  # 
   
-  
+  ######################################
+
   grobTitle <- paste0("Budget allocator optimum result for model ID ", select_model)
   g <- (p13 + p12) / p14 + plot_annotation(
     title = grobTitle, theme = theme(plot.title = element_text(hjust = 0.5))
