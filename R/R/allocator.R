@@ -634,6 +634,7 @@ robyn_allocator <- function(robyn_object = NULL,
          ,y="", x="Channels")
   
   
+  
   ## response curve
   
   plotDT_saturation <- melt.data.table(OutputCollect$mediaVecCollect[
@@ -658,6 +659,8 @@ robyn_allocator <- function(robyn_object = NULL,
   use.names = FALSE
   )
   setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
+  print(c('dt_optimOutScurve',dt_optimOutScurve))
+  print(c('plotDT_scurve',plotDT_scurve))
   
   # 
   # plotDT_saturation <- melt.data.table(model_output_collect$mediaVecCollect[solID==modID & type == "saturatedSpendReversed"], id.vars = "ds", measure.vars = set_mediaVarName, value.name = "spend", variable.name = "channel")
