@@ -671,7 +671,7 @@ robyn_allocator <- function(robyn_object = NULL,
   # dt_optimOutScurve <- rbind(dt_optimOut[, .(channels, initSpendUnit, initResponseUnit)][, type:="initial"], dt_optimOut[, .(channels, optmSpendUnit, optmResponseUnit)][, type:="optimised"], use.names = F)
   # setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
   
-  p14 <- ggplot(data= plotDT_scurve, aes(x=spend, y=response, color = channel)) +
+  p14 <- ggplot(data= plotDT_scurve[channel %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channel)) +
     geom_line() +
     geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
     geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
