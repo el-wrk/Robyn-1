@@ -13,6 +13,7 @@
 
 ## Install and load libraries
 # install.packages('remotes')
+detach("package:Robyn", unload = TRUE)
 devtools::install_github("el-wrk/Robyn-forked/R", force= TRUE)
 
 library(Robyn)

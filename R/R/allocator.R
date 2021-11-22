@@ -677,7 +677,7 @@ robyn_allocator <- function(robyn_object = NULL,
     geom_line() +
     geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
     geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
-    #facet_zoom(xlim = c(0, 50000), ylim = c(0,0.15)) +
+    facet_zoom(xlim = c(0, 5000), ylim = c(0,0.1)) +
     scale_color_gtb() +
     #geom_point(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, fill = "optimised"), shape=2) +
     #geom_text(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, label = round(optmSpendUnit,0)),  show.legend = F, hjust = -0.2) +
