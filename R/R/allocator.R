@@ -658,7 +658,7 @@ robyn_allocator <- function(robyn_object = NULL,
   
   
   p14 <- ggplot(
-    data= dt_optimOutScurve[channels %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channel)) +
+    data= dt_optimOutScurve[channels %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channels)) +
     geom_line() +
     geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
     geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
