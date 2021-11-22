@@ -656,13 +656,28 @@ robyn_allocator <- function(robyn_object = NULL,
   print(c('dt_optimOutScurve',dt_optimOutScurve))
   print(c('plotDT_scurve',plotDT_scurve))
   
+  print('1')
+  print(max(dt_optimOutScurve$response))
+  print(min(dt_optimOutScurve$response))
+  
+  print('2')
+  print(max(plotDT_scurve$response))
+  print(max(plotDT_scurve$response))
+  
+  print('3')
+  print(max(dt_optimOutScurve$spend))
+  print(min(dt_optimOutScurve$spend))
+  
+  print('4')
+  print(max(plotDT_scurve$spend))
+  print(max(plotDT_scurve$spend))
   
   p14 <- ggplot(
-    data= dt_optimOutScurve[channels %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channels)) +
+    data= plotDT_scurve[channel %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channel)) +
     geom_line() +
     geom_point(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, shape = type), size = 2) +
     geom_text(data = dt_optimOutScurve, aes(x=spend, y=response, color = channels, label = round(spend,0)),  show.legend = F, hjust = -0.2) +
-    facet_zoom(xlim = c(0, 50000), ylim = c(0,0.15)) +
+    #facet_zoom(xlim = c(0, 50000), ylim = c(0,0.15)) +
     scale_color_gtb() +
     #geom_point(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, fill = "optimised"), shape=2) +
     #geom_text(data = dt_optimOut, aes(x=optmSpendUnit, y=optmResponseUnit, color = channels, label = round(optmSpendUnit,0)),  show.legend = F, hjust = -0.2) +
