@@ -653,24 +653,24 @@ robyn_allocator <- function(robyn_object = NULL,
   use.names = FALSE
   )
   setnames(dt_optimOutScurve, c("channels", "spend", "response", "type"))
-  print(c('dt_optimOutScurve',dt_optimOutScurve))
-  print(c('plotDT_scurve',plotDT_scurve))
+  # print(c('dt_optimOutScurve',dt_optimOutScurve))
+  # print(c('plotDT_scurve',plotDT_scurve))
   
-  print('1')
-  print(max(dt_optimOutScurve$response))
-  print(min(dt_optimOutScurve$response))
-  
-  print('2')
-  print(max(plotDT_scurve$response))
-  print(max(plotDT_scurve$response))
-  
-  print('3')
-  print(max(dt_optimOutScurve$spend))
-  print(min(dt_optimOutScurve$spend))
-  
-  print('4')
-  print(max(plotDT_scurve$spend))
-  print(max(plotDT_scurve$spend))
+  # print('1')
+  # print(max(dt_optimOutScurve$response))
+  # print(min(dt_optimOutScurve$response))
+  # 
+  # print('2')
+  # print(max(plotDT_scurve$response))
+  # print(max(plotDT_scurve$response))
+  # 
+  # print('3')
+  # print(max(dt_optimOutScurve$spend))
+  # print(min(dt_optimOutScurve$spend))
+  # 
+  # print('4')
+  # print(max(plotDT_scurve$spend))
+  # print(max(plotDT_scurve$spend))
   
   p14 <- ggplot(
     data= plotDT_scurve[channel %in% InputCollect$paid_media_vars], aes(x=spend, y=response, color = channel)) +
